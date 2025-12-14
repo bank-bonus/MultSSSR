@@ -179,6 +179,7 @@ const App = () => {
     };
 
     const startGame = () => {
+        console.log("Starting game...");
         setScore(0);
         setLives(3);
         setGameState('GAME');
@@ -186,10 +187,12 @@ const App = () => {
     };
 
     const goToMenu = () => {
+        console.log("Going to menu...");
         setGameState('MENU');
     };
 
     const nextQuestion = () => {
+        console.log("Next question...");
         setIsProcessing(false);
         setSelectedOption(null);
         
