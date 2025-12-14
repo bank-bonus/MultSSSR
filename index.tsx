@@ -160,6 +160,10 @@ const App = () => {
         nextQuestion();
     };
 
+    const goToMenu = () => {
+        setGameState('MENU');
+    };
+
     const nextQuestion = () => {
         setIsProcessing(false);
         setSelectedOption(null);
@@ -218,9 +222,18 @@ const App = () => {
             {/* Header (Score & Lives) - Only in Game/Result */}
             {(gameState === 'GAME' || gameState === 'RESULT') && (
                 <div className="absolute top-0 left-0 right-0 h-16 bg-[#cc0000] border-b-4 border-[#990000] shadow-md z-50 flex justify-between items-center px-4 text-[#f0ead6]">
-                    <div className="flex flex-col leading-none">
-                        <span className="text-[10px] opacity-80 font-bold">СЧЕТ</span>
-                        <span className="text-2xl font-ruslan">{score}</span>
+                    <div className="flex items-center gap-4">
+                        <button 
+                            onClick={goToMenu}
+                            className="p-2 -ml-2 hover:bg-[#990000] rounded-lg transition-colors active:scale-95"
+                            aria-label="В меню"
+                        >
+                            <Home className="w-6 h-6" />
+                        </button>
+                        <div className="flex flex-col leading-none">
+                            <span className="text-[10px] opacity-80 font-bold">СЧЕТ</span>
+                            <span className="text-2xl font-ruslan">{score}</span>
+                        </div>
                     </div>
                     <div className="flex gap-1 text-xl">
                         {[...Array(3)].map((_, i) => (
@@ -331,7 +344,7 @@ const App = () => {
                             {currentQuestion.ru.desc}
                         </div>
 
-                        <Button variant="primary" onClick={() => nextQuestion()}>
+                        <Button variant="primary" onClick={nextQuestion}>
                             ДАЛЕЕ &gt;&gt;
                         </Button>
                     </div>
@@ -359,7 +372,7 @@ const App = () => {
                                 </div>
                             </Button>
 
-                            <Button variant="outline" onClick={() => setGameState('MENU')} className="mt-4 border-[#f0ead6] text-[#f0ead6] hover:bg-[#f0ead6] hover:text-[#cc0000]">
+                            <Button variant="outline" onClick={goToMenu} className="mt-4 border-[#f0ead6] text-[#f0ead6] hover:bg-[#f0ead6] hover:text-[#cc0000]">
                                 <Home className="w-4 h-4 mr-2" /> В МЕНЮ
                             </Button>
                         </div>
