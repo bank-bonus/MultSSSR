@@ -10,11 +10,13 @@ import {
   BookOpen, 
   Menu as MenuIcon,
   Image as ImageIcon,
-  Home
+  Home,
+  AlertTriangle,
+  X,
+  Check
 } from 'lucide-react';
 
 // --- Configuration ---
-// Lazy initialization to avoid top-level crashes if process is undefined during initial load
 const getAI = () => {
   const key = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : '';
   if (!key) console.warn("API Key might be missing");
@@ -40,7 +42,63 @@ interface GameContext {
   history: string[];
 }
 
-// --- Components ---
+// --- UI Components ---
+
+const Modal = ({ 
+  title, 
+  message, 
+  onConfirm, 
+  onCancel, 
+  confirmText = "Да", 
+  cancelText = "Отмена",
+  isError = false
+}: { 
+  title: string; 
+  message: string; 
+  onConfirm?: () => void; 
+  onCancel?: () => void; 
+  confirmText?: string; 
+  cancelText?: string;
+  isError?: boolean;
+}) => (
+  <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 animate-fade-in">
+    <div className={`w-full max-w-sm glass-panel p-6 rounded-2xl border ${isError ? 'border-red-500/30' : 'border-indigo-500/30'} shadow-2xl`}>
+      <div className="flex items-center gap-3 mb-4">
+        {isError ? (
+            <div className="p-2 bg-red-500/20 rounded-full">
+                <AlertTriangle className="w-6 h-6 text-red-400" />
+            </div>
+        ) : (
+            <div className="p-2 bg-indigo-500/20 rounded-full">
+                <ShieldQuestion className="w-6 h-6 text-indigo-400" />
+            </div>
+        )}
+        <h3 className="text-xl font-bold text-white">{title}</h3>
+      </div>
+      <p className="text-slate-300 mb-6 leading-relaxed">
+        {message}
+      </p>
+      <div className="flex gap-3">
+        {onCancel && (
+            <button 
+                onClick={onCancel}
+                className="flex-1 py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-bold active:scale-95 transition-all hover:bg-slate-700"
+            >
+                {cancelText}
+            </button>
+        )}
+        {onConfirm && (
+            <button 
+                onClick={onConfirm}
+                className={`flex-1 py-3 rounded-xl font-bold text-white shadow-lg active:scale-95 transition-all ${isError ? 'bg-red-600 hover:bg-red-500' : 'bg-indigo-600 hover:bg-indigo-500'}`}
+            >
+                {confirmText}
+            </button>
+        )}
+      </div>
+    </div>
+  </div>
+);
 
 // 1. Loading Screen
 const LoadingScreen = ({ message }: { message: string }) => (
@@ -237,6 +295,10 @@ const App = () => {
   const [currentNode, setCurrentNode] = useState<StoryNode | null>(null);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const [loadingMsg, setLoadingMsg] = useState('');
+  
+  // Custom Modal States
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [errorModal, setErrorModal] = useState<{show: boolean, msg: string}>({show: false, msg: ''});
 
   // Generate Story
   const generateStoryStep = async (prompt: string, history: string[], genre: string) => {
@@ -295,10 +357,10 @@ const App = () => {
       const data = JSON.parse(response.text) as StoryNode;
       setCurrentNode(data);
 
-      // Generate Image (non-blocking for UI, but we wait for loading screen logic)
+      // Generate Image
       if (data.imagePrompt) {
         setLoadingMsg('Создание иллюстрации...');
-        // We use generateContent for Flash Image model
+        // Non-blocking image generation to speed up perceived performance
         AI.models.generateContent({
             model: IMAGE_MODEL,
             contents: {
@@ -313,7 +375,7 @@ const App = () => {
             }
         }).catch(err => {
             console.error("Image gen error:", err);
-            setCurrentImage(null); // Continue without image
+            setCurrentImage(null);
         });
       } else {
           setCurrentImage(null);
@@ -323,7 +385,10 @@ const App = () => {
 
     } catch (error) {
       console.error(error);
-      alert('Ошибка! Попробуйте еще раз. (Проверьте API Key)');
+      setErrorModal({ 
+        show: true, 
+        msg: 'Ошибка соединения с ИИ. Возможно, проблема с API ключом или сетью.' 
+      });
       setGameState('MENU');
     }
   };
@@ -344,12 +409,15 @@ const App = () => {
     await generateStoryStep(choiceText, newHistory, context.genre);
   };
 
-  const handleBackToMenu = () => {
-    if (confirm("Вы уверены? Прогресс будет потерян.")) {
-        setGameState('MENU');
-        setCurrentImage(null);
-        setCurrentNode(null);
-    }
+  const requestBackToMenu = () => {
+    setShowExitModal(true);
+  };
+
+  const confirmExit = () => {
+    setShowExitModal(false);
+    setGameState('MENU');
+    setCurrentImage(null);
+    setCurrentNode(null);
   };
 
   return (
@@ -363,7 +431,29 @@ const App = () => {
           node={currentNode} 
           imageUrl={currentImage} 
           onChoice={handleChoice} 
-          onBackToMenu={handleBackToMenu}
+          onBackToMenu={requestBackToMenu}
+        />
+      )}
+
+      {/* Custom Exit Modal for WebView compatibility */}
+      {showExitModal && (
+        <Modal 
+            title="Выход в меню"
+            message="Текущий прогресс будет потерян. Вы уверены?"
+            confirmText="Выйти"
+            onConfirm={confirmExit}
+            onCancel={() => setShowExitModal(false)}
+        />
+      )}
+
+      {/* Custom Error Modal */}
+      {errorModal.show && (
+        <Modal 
+            title="Ошибка"
+            message={errorModal.msg}
+            confirmText="Ок"
+            isError={true}
+            onConfirm={() => setErrorModal({show: false, msg: ''})}
         />
       )}
     </div>
