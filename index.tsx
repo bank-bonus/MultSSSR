@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Play, RotateCcw, Home, Tv, Heart, Info, XCircle } from 'lucide-react';
+import { Play, RotateCcw, Home, Tv, Heart, Info, XCircle, Share2 } from 'lucide-react';
+
+// --- Global VK Bridge Declaration ---
+declare const vkBridge: any;
 
 // --- Types ---
 type GameState = 'MENU' | 'GAME' | 'RESULT' | 'GAMEOVER';
 
 interface Cartoon {
     id: string;
-    // Removed imageUrl from interface as we generate it from ID
     ru: { title: string; desc: string; };
 }
 
@@ -61,14 +63,9 @@ const CARTOONS: Cartoon[] = [
 ];
 
 // --- Helper for Images ---
-const getLocalImageUrl = (id: string) => {
-    // This expects images to be in an 'images' folder at the root (public/images)
-    return `./images/${id}.jpg`;
-};
-
-const getPlaceholderUrl = (title: string) => {
-    return `https://placehold.co/600x450/333/eee?text=${encodeURIComponent(title)}`;
-};
+// Changed to absolute path for better compatibility with Vite public folder
+const getLocalImageUrl = (id: string) => `/images/${id}.jpg`;
+const getPlaceholderUrl = (title: string) => `https://placehold.co/600x450/333/eee?text=${encodeURIComponent(title)}`;
 
 // --- Components ---
 
@@ -84,19 +81,14 @@ const TVFrame: React.FC<TVFrameProps> = ({ children, brand = "РУБИН" }) => 
             <div className="absolute inset-0 z-10 bg-black flex items-center justify-center">
                 {children}
             </div>
-            
             {/* Overlay Effects */}
             <div className="absolute inset-0 z-20 pointer-events-none bg-gradient-radial from-transparent via-black/20 to-black/80" />
             <div className="absolute inset-0 z-20 pointer-events-none opacity-10 bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/ea/Tv_noise.gif')] mix-blend-overlay opacity-5" />
             <div className="absolute inset-0 z-20 pointer-events-none scanlines" />
         </div>
-        
-        {/* TV Controls/Brand */}
         <div className="absolute bottom-[-14px] right-6 bg-[#3e2716] px-3 py-1 rounded-b-lg border border-t-0 border-[#2a1a0e] shadow-md z-30">
             <span className="text-[10px] font-bold text-[#d4af37] tracking-widest">{brand}</span>
         </div>
-        
-        {/* Decorative Knobs */}
         <div className="absolute top-10 -right-2 w-1 h-12 bg-[#2a1a0e] rounded-r-md" />
         <div className="absolute top-24 -right-2 w-1 h-8 bg-[#2a1a0e] rounded-r-md" />
     </div>
@@ -105,7 +97,7 @@ const TVFrame: React.FC<TVFrameProps> = ({ children, brand = "РУБИН" }) => 
 interface ButtonProps {
     children?: React.ReactNode;
     onClick?: () => void;
-    variant?: 'default' | 'primary' | 'ad' | 'outline';
+    variant?: 'default' | 'primary' | 'ad' | 'outline' | 'share';
     className?: string;
 }
 
@@ -120,8 +112,9 @@ const Button: React.FC<ButtonProps> = ({
     const variants = {
         default: "bg-[#f0ead6] border-2 border-[#1a1a1a] text-[#1a1a1a] shadow-[3px_3px_0_rgba(0,0,0,0.2)] py-3 hover:bg-white",
         primary: "bg-[#cc0000] border-2 border-[#1a1a1a] text-[#f0ead6] shadow-[4px_4px_0_#1a1a1a] py-4 text-lg hover:bg-[#e60000]",
-        ad: "bg-[#4a7c59] border-2 border-dashed border-white text-white shadow-lg py-3 mt-3",
-        outline: "bg-transparent border-2 border-[#1a1a1a] text-[#1a1a1a] py-2 mt-2 hover:bg-[#1a1a1a] hover:text-[#f0ead6]"
+        ad: "bg-[#4a7c59] border-2 border-dashed border-white text-white shadow-lg py-3 mt-3 hover:bg-[#5da06e]",
+        outline: "bg-transparent border-2 border-[#1a1a1a] text-[#1a1a1a] py-2 mt-2 hover:bg-[#1a1a1a] hover:text-[#f0ead6]",
+        share: "bg-[#0077FF] border-2 border-[#1a1a1a] text-white shadow-[3px_3px_0_rgba(0,0,0,0.2)] py-3 mt-2 hover:bg-[#2288ff]"
     };
 
     return (
@@ -131,12 +124,10 @@ const Button: React.FC<ButtonProps> = ({
     );
 };
 
-// Robust Image Component that handles errors
 const GameImage = ({ id, title }: { id: string, title: string }) => {
     const [imgSrc, setImgSrc] = useState<string>(getLocalImageUrl(id));
 
     useEffect(() => {
-        // Reset when question changes
         setImgSrc(getLocalImageUrl(id));
     }, [id]);
 
@@ -165,8 +156,20 @@ const App = () => {
     const [selectedOption, setSelectedOption] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     
-    // Load Highscore
+    // Initialize VK Bridge and Load Highscore
     useEffect(() => {
+        const initApp = async () => {
+            try {
+                if (typeof vkBridge !== 'undefined') {
+                    await vkBridge.send('VKWebAppInit');
+                    console.log('VK Bridge Initialized');
+                }
+            } catch (e) {
+                console.error('VK Bridge Init Failed', e);
+            }
+        };
+        initApp();
+
         const saved = localStorage.getItem('sovietQuizHighScore');
         if (saved) setHighScore(parseInt(saved, 10));
     }, []);
@@ -179,7 +182,6 @@ const App = () => {
     };
 
     const startGame = () => {
-        console.log("Starting game...");
         setScore(0);
         setLives(3);
         setGameState('GAME');
@@ -187,24 +189,16 @@ const App = () => {
     };
 
     const goToMenu = () => {
-        console.log("Going to menu...");
         setGameState('MENU');
     };
 
     const nextQuestion = () => {
-        console.log("Next question...");
         setIsProcessing(false);
         setSelectedOption(null);
         
-        // Random question
         const correct = CARTOONS[Math.floor(Math.random() * CARTOONS.length)];
-        
-        // Random distractors (unique)
         let distractors = CARTOONS.filter(c => c.id !== correct.id);
-        // Shuffle distractors
         distractors = distractors.sort(() => 0.5 - Math.random()).slice(0, 3);
-        
-        // Combine and shuffle options
         const allOptions = [correct, ...distractors].sort(() => 0.5 - Math.random()).map(c => c.ru.title);
         
         setCurrentQuestion(correct);
@@ -235,17 +229,42 @@ const App = () => {
         }, 1500);
     };
 
-    const handleRevive = () => {
-        // Simulation of Ad Reward
+    const handleRevive = async () => {
+        try {
+            if (typeof vkBridge !== 'undefined') {
+                // Try to show Native Ads (Reward)
+                const data = await vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'reward' });
+                if (data.result) {
+                     setLives(1);
+                     setGameState('GAME');
+                     nextQuestion();
+                     return;
+                }
+            }
+        } catch (e) {
+            console.error('Ad show failed, falling back to mock revive', e);
+        }
+
+        // Fallback for web testing or if ads fail
         setLives(1);
         setGameState('GAME');
         nextQuestion();
     };
 
+    const handleShare = () => {
+        if (typeof vkBridge !== 'undefined') {
+            vkBridge.send('VKWebAppShare', {
+                link: 'https://vk.com/app123456', // Replace with your App ID link if known
+                message: `Я набрал ${score} очков в СоюзМультКвизе! Сможешь больше?`
+            });
+        } else {
+            alert(`Поделиться: Я набрал ${score} очков!`);
+        }
+    };
+
     return (
         <div className="w-full h-full max-w-[500px] flex flex-col items-center relative bg-[#f0ead6]">
             
-            {/* Header (Score & Lives) - Only in Game/Result */}
             {(gameState === 'GAME' || gameState === 'RESULT') && (
                 <div className="absolute top-0 left-0 right-0 h-16 bg-[#cc0000] border-b-4 border-[#990000] shadow-md z-50 flex justify-between items-center px-4 text-[#f0ead6]">
                     <div className="flex items-center gap-4">
@@ -272,7 +291,6 @@ const App = () => {
                 </div>
             )}
 
-            {/* --- MENU SCREEN --- */}
             {gameState === 'MENU' && (
                 <div className="flex-1 w-full flex flex-col items-center justify-center p-6 space-y-8 animate-fade-in">
                     <div className="w-full bg-[#fff8e1] border-4 border-[#cc0000] p-6 shadow-[8px_8px_0_#1a1a1a] rounded-lg text-center transform -rotate-1">
@@ -299,7 +317,6 @@ const App = () => {
                 </div>
             )}
 
-            {/* --- GAME SCREEN --- */}
             {gameState === 'GAME' && currentQuestion && (
                 <div className="flex-1 w-full flex flex-col items-center pt-20 pb-6 px-4 overflow-y-auto">
                     <TVFrame>
@@ -320,7 +337,6 @@ const App = () => {
                                 if (isSelected) {
                                     btnStyle = isCorrect ? "animate-correct border-[#4a7c59]" : "animate-wrong border-[#cc0000]";
                                 } else if (isCorrect && selectedOption) {
-                                    // Show correct answer if wrong was selected
                                     btnStyle = "bg-[#4a7c59] text-white border-[#4a7c59]";
                                 } else {
                                     btnStyle = "opacity-50";
@@ -341,11 +357,9 @@ const App = () => {
                 </div>
             )}
 
-            {/* --- RESULT SCREEN --- */}
             {gameState === 'RESULT' && currentQuestion && (
                 <div className="flex-1 w-full flex flex-col items-center justify-center p-6 pt-20 animate-fade-in">
                     <div className="w-full bg-white border-4 border-[#cc0000] p-5 shadow-[6px_6px_0_#1a1a1a] rounded-lg relative overflow-hidden">
-                        {/* Background grid pattern - Added pointer-events-none */}
                         <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
                         
                         <h2 className={`text-4xl font-ruslan text-center mb-4 ${selectedOption === currentQuestion.ru.title ? 'text-[#4a7c59]' : 'text-[#cc0000]'}`}>
@@ -366,7 +380,6 @@ const App = () => {
                             {currentQuestion.ru.desc}
                         </div>
 
-                        {/* Added relative and z-10 to ensure button is clickable */}
                         <Button variant="primary" onClick={nextQuestion} className="relative z-10">
                             ДАЛЕЕ &gt;&gt;
                         </Button>
@@ -374,7 +387,6 @@ const App = () => {
                 </div>
             )}
 
-            {/* --- GAMEOVER SCREEN --- */}
             {gameState === 'GAMEOVER' && (
                 <div className="flex-1 w-full flex flex-col items-center justify-center p-6 animate-fade-in">
                     <div className="bg-[#cc0000] p-2 rounded shadow-2xl w-full max-w-sm">
@@ -386,12 +398,16 @@ const App = () => {
                                 <p className="text-4xl font-bold text-[#d4af37]">{score}</p>
                             </div>
 
-                            <p className="text-sm mb-6 leading-tight">Плёнка оборвалась! Но вы можете попробовать снова.</p>
-
                             <Button variant="ad" onClick={handleRevive}>
                                 <div className="flex flex-col items-center">
                                     <span className="flex items-center gap-2 text-lg"><Tv className="w-5 h-5" /> ВОСКРЕСНУТЬ</span>
-                                    <span className="text-[10px] opacity-80 font-normal">(Посмотреть рекламу)</span>
+                                    <span className="text-[10px] opacity-80 font-normal">(Смотреть рекламу)</span>
+                                </div>
+                            </Button>
+
+                            <Button variant="share" onClick={handleShare}>
+                                <div className="flex items-center gap-2 justify-center">
+                                    <Share2 className="w-5 h-5" /> ПОДЕЛИТЬСЯ
                                 </div>
                             </Button>
 
