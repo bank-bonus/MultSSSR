@@ -345,8 +345,8 @@ const App = () => {
             {gameState === 'RESULT' && currentQuestion && (
                 <div className="flex-1 w-full flex flex-col items-center justify-center p-6 pt-20 animate-fade-in">
                     <div className="w-full bg-white border-4 border-[#cc0000] p-5 shadow-[6px_6px_0_#1a1a1a] rounded-lg relative overflow-hidden">
-                        {/* Background grid pattern */}
-                        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+                        {/* Background grid pattern - Added pointer-events-none */}
+                        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
                         
                         <h2 className={`text-4xl font-ruslan text-center mb-4 ${selectedOption === currentQuestion.ru.title ? 'text-[#4a7c59]' : 'text-[#cc0000]'}`}>
                             {selectedOption === currentQuestion.ru.title ? 'ВЕРНО!' : 'ОШИБКА!'}
@@ -366,7 +366,8 @@ const App = () => {
                             {currentQuestion.ru.desc}
                         </div>
 
-                        <Button variant="primary" onClick={nextQuestion}>
+                        {/* Added relative and z-10 to ensure button is clickable */}
+                        <Button variant="primary" onClick={nextQuestion} className="relative z-10">
                             ДАЛЕЕ &gt;&gt;
                         </Button>
                     </div>
