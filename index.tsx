@@ -7,12 +7,11 @@ type GameState = 'MENU' | 'GAME' | 'RESULT' | 'GAMEOVER';
 
 interface Cartoon {
     id: string;
-    imageUrl?: string;
+    // Removed imageUrl from interface as we generate it from ID
     ru: { title: string; desc: string; };
 }
 
-// --- Data (Subset of provided data + placeholders) ---
-// Note: In a real app, images would be imported or URLs. Using placeholders for demo.
+// --- Data ---
 const CARTOONS: Cartoon[] = [
   { id: "nu_pogodi", ru: { title: "Ну, погоди!", desc: "Легендарная погоня Волка за Зайцем." } },
   { id: "vinni", ru: { title: "Винни-Пух", desc: "Винни-Пуха озвучивал Евгений Леонов." } },
@@ -61,11 +60,13 @@ const CARTOONS: Cartoon[] = [
   { id: "zaec", ru: { title: "Мешок яблок", desc: "Четыре сыночка и лапочка дочка." } },
 ];
 
-const getImageUrl = (id: string, title: string) => {
-    // In a real scenario, check if file exists or use a reliable CDN.
-    // For this demo, using placehold.co with the title.
-    // Also trying to look for local path if provided in original code, but we don't have files.
-    // We will use a stylistic placeholder.
+// --- Helper for Images ---
+const getLocalImageUrl = (id: string) => {
+    // This expects images to be in an 'images' folder at the root (public/images)
+    return `./images/${id}.jpg`;
+};
+
+const getPlaceholderUrl = (title: string) => {
     return `https://placehold.co/600x450/333/eee?text=${encodeURIComponent(title)}`;
 };
 
@@ -80,7 +81,7 @@ const TVFrame: React.FC<TVFrameProps> = ({ children, brand = "РУБИН" }) => 
     <div className="relative w-full max-w-md aspect-[4/3] bg-[#5c3a21] rounded-xl border-2 border-[#3e2716] shadow-xl p-2 md:p-3 mb-4 flex-shrink-0">
         <div className="w-full h-full bg-black rounded-lg border-4 border-[#1a1a1a] shadow-inner relative overflow-hidden group">
              {/* Screen Content */}
-            <div className="absolute inset-0 z-10">
+            <div className="absolute inset-0 z-10 bg-black flex items-center justify-center">
                 {children}
             </div>
             
@@ -127,6 +128,30 @@ const Button: React.FC<ButtonProps> = ({
         <button className={`${baseStyle} ${variants[variant]} ${className}`} onClick={onClick}>
             {children}
         </button>
+    );
+};
+
+// Robust Image Component that handles errors
+const GameImage = ({ id, title }: { id: string, title: string }) => {
+    const [imgSrc, setImgSrc] = useState<string>(getLocalImageUrl(id));
+
+    useEffect(() => {
+        // Reset when question changes
+        setImgSrc(getLocalImageUrl(id));
+    }, [id]);
+
+    const handleError = () => {
+        console.log(`Image not found for ${id}, switching to placeholder.`);
+        setImgSrc(getPlaceholderUrl(title));
+    };
+
+    return (
+        <img 
+            src={imgSrc} 
+            alt={title} 
+            onError={handleError}
+            className="w-full h-full object-cover filter contrast-110 brightness-90 sepia-[0.3]"
+        />
     );
 };
 
@@ -214,8 +239,6 @@ const App = () => {
         nextQuestion();
     };
 
-    const imageSrc = currentQuestion ? getImageUrl(currentQuestion.id, currentQuestion.ru.title) : '';
-
     return (
         <div className="w-full h-full max-w-[500px] flex flex-col items-center relative bg-[#f0ead6]">
             
@@ -277,11 +300,7 @@ const App = () => {
             {gameState === 'GAME' && currentQuestion && (
                 <div className="flex-1 w-full flex flex-col items-center pt-20 pb-6 px-4 overflow-y-auto">
                     <TVFrame>
-                        <img 
-                            src={imageSrc} 
-                            alt="Guess" 
-                            className="w-full h-full object-cover filter contrast-110 brightness-90 sepia-[0.3]"
-                        />
+                        <GameImage id={currentQuestion.id} title={currentQuestion.ru.title} />
                     </TVFrame>
 
                     <div className="bg-[#1a1a1a] text-[#f0ead6] px-4 py-2 -skew-x-6 border-l-4 border-[#cc0000] shadow-lg mb-4">
@@ -331,7 +350,7 @@ const App = () => {
                         </h2>
 
                         <div className="w-full aspect-video bg-black rounded border-2 border-[#1a1a1a] mb-4 overflow-hidden relative">
-                            <img src={imageSrc} className="w-full h-full object-contain" />
+                             <GameImage id={currentQuestion.id} title={currentQuestion.ru.title} />
                             <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] p-1 text-center">
                                 КАДР ИЗ МУЛЬТФИЛЬМА
                             </div>
