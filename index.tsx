@@ -1,463 +1,374 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
-import { GoogleGenAI, Type } from "@google/genai";
-import { 
-  Sparkles, 
-  ArrowLeft, 
-  Play, 
-  Map, 
-  ShieldQuestion, 
-  BookOpen, 
-  Menu as MenuIcon,
-  Image as ImageIcon,
-  Home,
-  AlertTriangle,
-  X,
-  Check
-} from 'lucide-react';
-
-// --- Configuration ---
-const getAI = () => {
-  const key = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : '';
-  if (!key) console.warn("API Key might be missing");
-  return new GoogleGenAI({ apiKey: key });
-};
-
-// Models
-const TEXT_MODEL = "gemini-2.5-flash";
-const IMAGE_MODEL = "gemini-2.5-flash-image";
+import { Play, RotateCcw, Home, Tv, Heart, Info, XCircle } from 'lucide-react';
 
 // --- Types ---
-type GameState = 'MENU' | 'PLAYING' | 'LOADING' | 'ERROR';
+type GameState = 'MENU' | 'GAME' | 'RESULT' | 'GAMEOVER';
 
-interface StoryNode {
-  text: string;
-  choices: { text: string }[];
-  imagePrompt?: string;
-  title?: string;
+interface Cartoon {
+    id: string;
+    imageUrl?: string;
+    ru: { title: string; desc: string; };
 }
 
-interface GameContext {
-  genre: string;
-  history: string[];
-}
+// --- Data (Subset of provided data + placeholders) ---
+// Note: In a real app, images would be imported or URLs. Using placeholders for demo.
+const CARTOONS: Cartoon[] = [
+  { id: "nu_pogodi", ru: { title: "Ну, погоди!", desc: "Легендарная погоня Волка за Зайцем." } },
+  { id: "vinni", ru: { title: "Винни-Пух", desc: "Винни-Пуха озвучивал Евгений Леонов." } },
+  { id: "prostokvashino", ru: { title: "Простоквашино", desc: "Дядя Фёдор уехал жить с котом и псом." } },
+  { id: "bremenskie", ru: { title: "Бременские музыканты", desc: "Музыкальная фантазия с элементами рок-н-ролла." } },
+  { id: "ezhik", ru: { title: "Ёжик в тумане", desc: "Признан лучшим мультфильмом всех времён." } },
+  { id: "karlson", ru: { title: "Малыш и Карлсон", desc: "История о человеке, который живет на крыше." } },
+  { id: "pes", ru: { title: "Жил-был пёс", desc: "Фраза «Щас спою!» стала крылатой." } },
+  { id: "taina", ru: { title: "Тайна третьей планеты", desc: "Фантастическое путешествие Алисы Селезнёвой." } },
+  { id: "korabl", ru: { title: "Летучий корабль", desc: "Мюзикл про любовь и летучий корабль." } },
+  { id: "gena", ru: { title: "Крокодил Гена", desc: "Здесь впервые прозвучала песня про день рождения." } },
+  { id: "leopold", ru: { title: "Кот Леопольд", desc: "Ребята, давайте жить дружно!" } },
+  { id: "kesha", ru: { title: "Попугай Кеша", desc: "Таити, Таити... Нас и здесь неплохо кормят!" } },
+  { id: "sneg", ru: { title: "Падал прошлогодний снег", desc: "Маловато будет!" } },
+  { id: "umka", ru: { title: "Умка", desc: "История о белом медвежонке." } },
+  { id: "maugli", ru: { title: "Маугли", desc: "Советская экранизация Киплинга." } },
+  { id: "cheburashka", ru: { title: "Чебурашка", desc: "Неизвестный науке зверь с большими ушами." } },
+  { id: "vovka", ru: { title: "Вовка в Тридевятом царстве", desc: "«И так сойдёт!» — девиз лентяя Вовки." } },
+  { id: "popugaev", ru: { title: "38 попугаев", desc: "А в попугаях-то я гораздо длиннее!" } },
+  { id: "kuzya", ru: { title: "Домовёнок Кузя", desc: "Я не жадный, я домовитый!" } },
+  { id: "funtik", ru: { title: "Приключения Фунтика", desc: "Подайте на домики для бездомных поросят!" } },
+  { id: "gav", ru: { title: "Котёнок по имени Гав", desc: "Давай бояться вместе!" } },
+  { id: "ostrov", ru: { title: "Остров сокровищ", desc: "Гротескная экранизация с музыкальными вставками." } },
+  { id: "varezhka", ru: { title: "Варежка", desc: "Девочка так хотела собаку, что варежка ожила." } },
+  { id: "ded_moroz", ru: { title: "Дед Мороз и лето", desc: "Дед Мороз узнает, что такое лето." } },
+  { id: "chipollino", ru: { title: "Чиполлино", desc: "Революция овощей против синьора Помидора." } },
+  { id: "antelopa", ru: { title: "Золотая антилопа", desc: "Антилопа выбивала золотые монеты копытами." } },
+  { id: "alenkiy", ru: { title: "Аленький цветочек", desc: "Сказка о любви красавицы и чудовища." } },
+  { id: "12mes", ru: { title: "Двенадцать месяцев", desc: "Девочка встречает 12 месяцев у новогоднего костра." } },
+  { id: "snowqueen", ru: { title: "Снежная королева", desc: "Герда отправляется спасать Кая из ледяного плена." } },
+  { id: "neznaika", ru: { title: "Незнайка на Луне", desc: "Коротышки отправляются в космическое путешествие." } },
+  { id: "vrungel", ru: { title: "Капитан Врунгель", desc: "Как вы яхту назовете, так она и поплывет!" } },
+  { id: "aibolit", ru: { title: "Доктор Айболит", desc: "Добрый доктор лечит зверей в Африке." } },
+  { id: "rikki", ru: { title: "Рикки-Тикки-Тави", desc: "Отважный мангуст сражается с кобрами." } },
+  { id: "konyok", ru: { title: "Конёк-Горбунок", desc: "Верный волшебный друг Ивана." } },
+  { id: "plastilin", ru: { title: "Пластилиновая ворона", desc: "А может быть собака, а может быть корова..." } },
+  { id: "mamontenok", ru: { title: "Мама для мамонтёнка", desc: "Плыву я сквозь волны и ветер к единственной маме на свете." } },
+  { id: "bolibok", ru: { title: "Бобик в гостях у Барбоса", desc: "Человек собаке друг, это знают все вокруг!" } },
+  { id: "rybka", ru: { title: "О рыбаке и рыбке", desc: "Не хочу быть черной крестьянкой, хочу быть столбовою дворянкой!" } },
+  { id: "tsarevna", ru: { title: "Царевна-лягушка", desc: "Иван-царевич сжигает лягушачью кожу." } },
+  { id: "fedora", ru: { title: "Федорино горе", desc: "От грязнули Федоры сбежала вся посуда." } },
+  { id: "moydodyr", ru: { title: "Мойдодыр", desc: "Надо, надо умываться по утрам и вечерам!" } },
+  { id: "kot_sapog", ru: { title: "Кот в сапогах", desc: "Хитрый кот помогает своему хозяину стать маркизом." } },
+  { id: "snezhnaya", ru: { title: "Снегурочка", desc: "Девочка из снега, которая растаяла от любви." } },
+  { id: "dyuym", ru: { title: "Дюймовочка", desc: "Маленькая девочка, рожденная в цветке." } },
+  { id: "zaec", ru: { title: "Мешок яблок", desc: "Четыре сыночка и лапочка дочка." } },
+];
 
-// --- UI Components ---
-
-const Modal = ({ 
-  title, 
-  message, 
-  onConfirm, 
-  onCancel, 
-  confirmText = "Да", 
-  cancelText = "Отмена",
-  isError = false
-}: { 
-  title: string; 
-  message: string; 
-  onConfirm?: () => void; 
-  onCancel?: () => void; 
-  confirmText?: string; 
-  cancelText?: string;
-  isError?: boolean;
-}) => (
-  <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 animate-fade-in">
-    <div className={`w-full max-w-sm glass-panel p-6 rounded-2xl border ${isError ? 'border-red-500/30' : 'border-indigo-500/30'} shadow-2xl`}>
-      <div className="flex items-center gap-3 mb-4">
-        {isError ? (
-            <div className="p-2 bg-red-500/20 rounded-full">
-                <AlertTriangle className="w-6 h-6 text-red-400" />
-            </div>
-        ) : (
-            <div className="p-2 bg-indigo-500/20 rounded-full">
-                <ShieldQuestion className="w-6 h-6 text-indigo-400" />
-            </div>
-        )}
-        <h3 className="text-xl font-bold text-white">{title}</h3>
-      </div>
-      <p className="text-slate-300 mb-6 leading-relaxed">
-        {message}
-      </p>
-      <div className="flex gap-3">
-        {onCancel && (
-            <button 
-                onClick={onCancel}
-                className="flex-1 py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-bold active:scale-95 transition-all hover:bg-slate-700"
-            >
-                {cancelText}
-            </button>
-        )}
-        {onConfirm && (
-            <button 
-                onClick={onConfirm}
-                className={`flex-1 py-3 rounded-xl font-bold text-white shadow-lg active:scale-95 transition-all ${isError ? 'bg-red-600 hover:bg-red-500' : 'bg-indigo-600 hover:bg-indigo-500'}`}
-            >
-                {confirmText}
-            </button>
-        )}
-      </div>
-    </div>
-  </div>
-);
-
-// 1. Loading Screen
-const LoadingScreen = ({ message }: { message: string }) => (
-  <div className="flex flex-col items-center justify-center h-full w-full space-y-8 p-8 text-center animate-fade-in bg-slate-900/50 backdrop-blur-sm">
-    <div className="relative">
-      <div className="absolute inset-0 bg-indigo-500 blur-2xl opacity-20 rounded-full animate-pulse-slow"></div>
-      <div className="relative p-4 rounded-full border border-indigo-500/30 bg-slate-900/50 shadow-2xl">
-         <Sparkles className="w-12 h-12 text-indigo-400 animate-spin" style={{ animationDuration: '4s' }} />
-      </div>
-    </div>
-    <div className="space-y-2">
-      <p className="text-xl font-medium tracking-wide text-indigo-100">{message}</p>
-      <div className="flex gap-1 justify-center">
-        <span className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '0s' }}></span>
-        <span className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '0.2s' }}></span>
-        <span className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '0.4s' }}></span>
-      </div>
-    </div>
-  </div>
-);
-
-// 2. Main Menu
-const MainMenu = ({ onStart }: { onStart: (genre: string) => void }) => {
-  const genres = [
-    { id: 'fantasy', name: 'Фэнтези', icon: <Map className="w-6 h-6" />, desc: 'Меч и магия' },
-    { id: 'scifi', name: 'Киберпанк', icon: <ShieldQuestion className="w-6 h-6" />, desc: 'Будущее и технологии' },
-    { id: 'mystery', name: 'Детектив', icon: <BookOpen className="w-6 h-6" />, desc: 'Тайны и расследования' },
-  ];
-
-  return (
-    <div className="flex flex-col h-full w-full p-6 animate-fade-in relative overflow-hidden bg-slate-900">
-        {/* Background Atmosphere */}
-        <div className="absolute top-[-20%] left-[-20%] w-[140%] h-[60%] bg-purple-900/20 blur-[100px] pointer-events-none rounded-full" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[80%] h-[50%] bg-blue-900/20 blur-[80px] pointer-events-none rounded-full" />
-        
-        <div className="relative z-10 flex flex-col h-full max-w-md mx-auto w-full">
-            <header className="mb-10 mt-6 text-center space-y-2">
-                <div className="inline-block p-3 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 mb-2 shadow-lg shadow-indigo-900/20">
-                     <Sparkles className="w-8 h-8 text-indigo-300" />
-                </div>
-                <h1 className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-white to-purple-200 drop-shadow-sm tracking-tight">
-                    ЭХО
-                </h1>
-                <p className="text-xs font-bold text-indigo-400/80 uppercase tracking-[0.3em]">Интерактивные Миры</p>
-            </header>
-
-            <div className="flex-1 flex flex-col justify-center space-y-4">
-                {genres.map((genre, idx) => (
-                    <button
-                        key={genre.id}
-                        onClick={() => onStart(genre.name)}
-                        className="group relative overflow-hidden glass-button p-4 rounded-2xl text-left transition-all active:scale-[0.97]"
-                        style={{ animationDelay: `${idx * 100}ms` }}
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/10 to-purple-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                        <div className="relative flex items-center space-x-4">
-                            <div className="p-3 bg-slate-800/80 rounded-xl text-indigo-400 group-hover:text-indigo-300 transition-colors shadow-inner">
-                                {genre.icon}
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-lg text-slate-100 group-hover:text-white transition-colors">{genre.name}</h3>
-                                <p className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">{genre.desc}</p>
-                            </div>
-                        </div>
-                    </button>
-                ))}
-            </div>
-
-            <footer className="mt-auto pt-8 pb-4 text-center">
-                 <p className="text-[10px] text-slate-600 font-mono">POWERED BY GEMINI 2.5</p>
-            </footer>
-        </div>
-    </div>
-  );
+const getImageUrl = (id: string, title: string) => {
+    // In a real scenario, check if file exists or use a reliable CDN.
+    // For this demo, using placehold.co with the title.
+    // Also trying to look for local path if provided in original code, but we don't have files.
+    // We will use a stylistic placeholder.
+    return `https://placehold.co/600x450/333/eee?text=${encodeURIComponent(title)}`;
 };
 
-// 3. Game Screen
-const GameScreen = ({ 
-  node, 
-  imageUrl, 
-  onChoice, 
-  onBackToMenu 
-}: { 
-  node: StoryNode; 
-  imageUrl: string | null; 
-  onChoice: (text: string) => void; 
-  onBackToMenu: () => void;
-}) => {
-  const [typedText, setTypedText] = useState('');
-  const textRef = useRef<HTMLDivElement>(null);
-  
-  // Typewriter effect
-  useEffect(() => {
-    setTypedText('');
-    let i = 0;
-    const speed = 15; 
-    const fullText = node.text || '';
-    
-    // Clear previous interval if node changes rapidly
-    const interval = setInterval(() => {
-      if (i < fullText.length) {
-        setTypedText(prev => fullText.substring(0, i + 1));
-        i++;
-        if (textRef.current) {
-           textRef.current.scrollTop = textRef.current.scrollHeight;
-        }
-      } else {
-        clearInterval(interval);
-      }
-    }, speed);
+// --- Components ---
 
-    return () => clearInterval(interval);
-  }, [node]);
+interface TVFrameProps {
+    children?: React.ReactNode;
+    brand?: string;
+}
 
-  return (
-    <div className="flex flex-col h-full relative bg-slate-900 w-full max-w-md mx-auto">
-      {/* Top Navigation */}
-      <div className="absolute top-0 left-0 right-0 z-40 p-4 flex justify-between items-start pointer-events-none bg-gradient-to-b from-black/60 to-transparent">
-        <button 
-          onClick={onBackToMenu}
-          className="pointer-events-auto flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/60 backdrop-blur-md border border-white/10 text-slate-200 text-xs font-bold uppercase tracking-wide hover:bg-slate-800/80 active:scale-95 transition-all shadow-lg"
-        >
-          <Home className="w-3 h-3" />
-          <span>Меню</span>
-        </button>
-        
-        {node.title && (
-             <div className="px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/30 backdrop-blur-md shadow-lg">
-                 <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">{node.title}</span>
-             </div>
-        )}
-      </div>
-
-      {/* Visual Area (Image) */}
-      <div className="h-[45%] w-full relative shrink-0 bg-slate-800 overflow-hidden">
-        {imageUrl ? (
-          <>
-            <img 
-              src={imageUrl} 
-              alt="Scene" 
-              className="w-full h-full object-cover animate-fade-in"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-90" />
-            <div className="absolute inset-0 bg-indigo-900/10 mix-blend-overlay" />
-          </>
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center text-slate-700 bg-slate-900">
-            <ImageIcon className="w-16 h-16 opacity-20 mb-2" />
-            <span className="text-xs uppercase tracking-widest opacity-30">Визуализация...</span>
-          </div>
-        )}
-      </div>
-
-      {/* Story & Controls */}
-      <div className="flex-1 flex flex-col relative -mt-12 z-20 px-4 pb-6 overflow-hidden">
-        <div className="flex-1 glass-panel rounded-2xl flex flex-col shadow-2xl overflow-hidden ring-1 ring-white/10">
+const TVFrame: React.FC<TVFrameProps> = ({ children, brand = "РУБИН" }) => (
+    <div className="relative w-full max-w-md aspect-[4/3] bg-[#5c3a21] rounded-xl border-2 border-[#3e2716] shadow-xl p-2 md:p-3 mb-4 flex-shrink-0">
+        <div className="w-full h-full bg-black rounded-lg border-4 border-[#1a1a1a] shadow-inner relative overflow-hidden group">
+             {/* Screen Content */}
+            <div className="absolute inset-0 z-10">
+                {children}
+            </div>
             
-            {/* Scrollable Text */}
-            <div 
-                ref={textRef}
-                className="flex-1 p-6 overflow-y-auto custom-scrollbar"
-            >
-                <p className="serif-text text-[15px] leading-7 text-slate-200/90 whitespace-pre-wrap drop-shadow-sm">
-                    {typedText}
-                </p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="p-4 bg-black/40 backdrop-blur-md border-t border-white/5 flex flex-col gap-3">
-                {node.choices.map((choice, idx) => (
-                    <button
-                        key={idx}
-                        onClick={() => onChoice(choice.text)}
-                        className="w-full group relative p-4 rounded-xl bg-gradient-to-r from-slate-800 to-slate-800 hover:from-indigo-900/50 hover:to-slate-800 border border-white/5 hover:border-indigo-500/30 text-white font-medium text-sm shadow-md active:scale-[0.98] transition-all flex items-center justify-between"
-                    >
-                        <span className="text-left pr-4 group-hover:text-indigo-200 transition-colors">{choice.text}</span>
-                        <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-indigo-500/20 transition-colors">
-                             <Play className="w-3 h-3 text-slate-400 group-hover:text-indigo-300 fill-current" />
-                        </div>
-                    </button>
-                ))}
-            </div>
+            {/* Overlay Effects */}
+            <div className="absolute inset-0 z-20 pointer-events-none bg-gradient-radial from-transparent via-black/20 to-black/80" />
+            <div className="absolute inset-0 z-20 pointer-events-none opacity-10 bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/ea/Tv_noise.gif')] mix-blend-overlay opacity-5" />
+            <div className="absolute inset-0 z-20 pointer-events-none scanlines" />
         </div>
-      </div>
+        
+        {/* TV Controls/Brand */}
+        <div className="absolute bottom-[-14px] right-6 bg-[#3e2716] px-3 py-1 rounded-b-lg border border-t-0 border-[#2a1a0e] shadow-md z-30">
+            <span className="text-[10px] font-bold text-[#d4af37] tracking-widest">{brand}</span>
+        </div>
+        
+        {/* Decorative Knobs */}
+        <div className="absolute top-10 -right-2 w-1 h-12 bg-[#2a1a0e] rounded-r-md" />
+        <div className="absolute top-24 -right-2 w-1 h-8 bg-[#2a1a0e] rounded-r-md" />
     </div>
-  );
-};
+);
 
-// --- Main App Logic ---
+interface ButtonProps {
+    children?: React.ReactNode;
+    onClick?: () => void;
+    variant?: 'default' | 'primary' | 'ad' | 'outline';
+    className?: string;
+}
+
+const Button: React.FC<ButtonProps> = ({ 
+    children, 
+    onClick, 
+    variant = 'default',
+    className = ''
+}) => {
+    const baseStyle = "w-full font-bold uppercase tracking-wide cursor-pointer flex items-center justify-center transition-transform active:translate-x-[2px] active:translate-y-[2px] active:shadow-none rounded-lg select-none";
+    
+    const variants = {
+        default: "bg-[#f0ead6] border-2 border-[#1a1a1a] text-[#1a1a1a] shadow-[3px_3px_0_rgba(0,0,0,0.2)] py-3 hover:bg-white",
+        primary: "bg-[#cc0000] border-2 border-[#1a1a1a] text-[#f0ead6] shadow-[4px_4px_0_#1a1a1a] py-4 text-lg hover:bg-[#e60000]",
+        ad: "bg-[#4a7c59] border-2 border-dashed border-white text-white shadow-lg py-3 mt-3",
+        outline: "bg-transparent border-2 border-[#1a1a1a] text-[#1a1a1a] py-2 mt-2 hover:bg-[#1a1a1a] hover:text-[#f0ead6]"
+    };
+
+    return (
+        <button className={`${baseStyle} ${variants[variant]} ${className}`} onClick={onClick}>
+            {children}
+        </button>
+    );
+};
 
 const App = () => {
-  const [gameState, setGameState] = useState<GameState>('MENU');
-  const [context, setContext] = useState<GameContext>({ genre: '', history: [] });
-  const [currentNode, setCurrentNode] = useState<StoryNode | null>(null);
-  const [currentImage, setCurrentImage] = useState<string | null>(null);
-  const [loadingMsg, setLoadingMsg] = useState('');
-  
-  // Custom Modal States
-  const [showExitModal, setShowExitModal] = useState(false);
-  const [errorModal, setErrorModal] = useState<{show: boolean, msg: string}>({show: false, msg: ''});
+    const [gameState, setGameState] = useState<GameState>('MENU');
+    const [score, setScore] = useState(0);
+    const [highScore, setHighScore] = useState(0);
+    const [lives, setLives] = useState(3);
+    const [currentQuestion, setCurrentQuestion] = useState<Cartoon | null>(null);
+    const [options, setOptions] = useState<string[]>([]);
+    const [selectedOption, setSelectedOption] = useState<string | null>(null);
+    const [isProcessing, setIsProcessing] = useState(false);
+    
+    // Load Highscore
+    useEffect(() => {
+        const saved = localStorage.getItem('sovietQuizHighScore');
+        if (saved) setHighScore(parseInt(saved, 10));
+    }, []);
 
-  // Generate Story
-  const generateStoryStep = async (prompt: string, history: string[], genre: string) => {
-    try {
-      const AI = getAI();
-      setLoadingMsg('ИИ пишет историю...');
-      
-      const systemInstruction = `
-        Ты ведущий текстовой RPG (квест). Жанр: ${genre}.
-        Язык: Русский.
-        Задача: Создай продолжение истории (сцену) и 2-3 варианта выбора.
-        Формат: JSON.
+    const saveScore = (newScore: number) => {
+        if (newScore > highScore) {
+            setHighScore(newScore);
+            localStorage.setItem('sovietQuizHighScore', newScore.toString());
+        }
+    };
+
+    const startGame = () => {
+        setScore(0);
+        setLives(3);
+        setGameState('GAME');
+        nextQuestion();
+    };
+
+    const nextQuestion = () => {
+        setIsProcessing(false);
+        setSelectedOption(null);
         
-        JSON схема:
-        {
-          "title": "Заголовок сцены (2-3 слова, например: 'Темный Лес')",
-          "text": "Текст сцены (300-500 знаков). Литературный стиль, описывай окружение, запахи, звуки.",
-          "imagePrompt": "Описание для генерации картинки (на английском), детальное, визуальное. Например: 'Dark forest with glowing mushrooms, cinematic lighting, 8k'.",
-          "choices": [
-            { "text": "Действие 1" },
-            { "text": "Действие 2" }
-          ]
+        // Random question
+        const correct = CARTOONS[Math.floor(Math.random() * CARTOONS.length)];
+        
+        // Random distractors (unique)
+        let distractors = CARTOONS.filter(c => c.id !== correct.id);
+        // Shuffle distractors
+        distractors = distractors.sort(() => 0.5 - Math.random()).slice(0, 3);
+        
+        // Combine and shuffle options
+        const allOptions = [correct, ...distractors].sort(() => 0.5 - Math.random()).map(c => c.ru.title);
+        
+        setCurrentQuestion(correct);
+        setOptions(allOptions);
+        setGameState('GAME');
+    };
+
+    const handleAnswer = (answer: string) => {
+        if (isProcessing || !currentQuestion) return;
+        setIsProcessing(true);
+        setSelectedOption(answer);
+
+        const isCorrect = answer === currentQuestion.ru.title;
+
+        if (isCorrect) {
+            setScore(prev => prev + 100);
+        } else {
+            setLives(prev => prev - 1);
         }
 
-        История: ${history.join('\n')}
-        Действие игрока: ${prompt}
-      `;
-
-      const response = await AI.models.generateContent({
-        model: TEXT_MODEL,
-        contents: [{ role: 'user', parts: [{ text: "Next scene." }] }],
-        config: {
-          systemInstruction: systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              text: { type: Type.STRING },
-              imagePrompt: { type: Type.STRING },
-              choices: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    text: { type: Type.STRING }
-                  }
-                }
-              }
-            }
-          }
-        }
-      });
-
-      if (!response.text) throw new Error("No text response");
-      const data = JSON.parse(response.text) as StoryNode;
-      setCurrentNode(data);
-
-      // Generate Image
-      if (data.imagePrompt) {
-        setLoadingMsg('Создание иллюстрации...');
-        // Non-blocking image generation to speed up perceived performance
-        AI.models.generateContent({
-            model: IMAGE_MODEL,
-            contents: {
-                parts: [{ text: `${genre} aesthetic, detailed, cinematic. ${data.imagePrompt}` }]
-            }
-        }).then(imgResp => {
-            const part = imgResp.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-            if (part && part.inlineData && part.inlineData.data) {
-                setCurrentImage(`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`);
+        setTimeout(() => {
+            if (!isCorrect && lives <= 1) {
+                saveScore(score);
+                setGameState('GAMEOVER');
             } else {
-                setCurrentImage(null);
+                setGameState('RESULT');
             }
-        }).catch(err => {
-            console.error("Image gen error:", err);
-            setCurrentImage(null);
-        });
-      } else {
-          setCurrentImage(null);
-      }
-      
-      setGameState('PLAYING');
+        }, 1500);
+    };
 
-    } catch (error) {
-      console.error(error);
-      setErrorModal({ 
-        show: true, 
-        msg: 'Ошибка соединения с ИИ. Возможно, проблема с API ключом или сетью.' 
-      });
-      setGameState('MENU');
-    }
-  };
+    const handleRevive = () => {
+        // Simulation of Ad Reward
+        setLives(1);
+        setGameState('GAME');
+        nextQuestion();
+    };
 
-  const handleStartGame = async (genre: string) => {
-    setGameState('LOADING');
-    setContext({ genre, history: [] });
-    await generateStoryStep("Начало приключения.", [], genre);
-  };
+    const imageSrc = currentQuestion ? getImageUrl(currentQuestion.id, currentQuestion.ru.title) : '';
 
-  const handleChoice = async (choiceText: string) => {
-    if (!currentNode) return;
-    setGameState('LOADING');
-    
-    const newHistory = [...context.history, `Сцена: ${currentNode.text}`, `Выбор: ${choiceText}`].slice(-4); 
-    setContext(prev => ({ ...prev, history: newHistory }));
-    
-    await generateStoryStep(choiceText, newHistory, context.genre);
-  };
+    return (
+        <div className="w-full h-full max-w-[500px] flex flex-col items-center relative bg-[#f0ead6]">
+            
+            {/* Header (Score & Lives) - Only in Game/Result */}
+            {(gameState === 'GAME' || gameState === 'RESULT') && (
+                <div className="absolute top-0 left-0 right-0 h-16 bg-[#cc0000] border-b-4 border-[#990000] shadow-md z-50 flex justify-between items-center px-4 text-[#f0ead6]">
+                    <div className="flex flex-col leading-none">
+                        <span className="text-[10px] opacity-80 font-bold">СЧЕТ</span>
+                        <span className="text-2xl font-ruslan">{score}</span>
+                    </div>
+                    <div className="flex gap-1 text-xl">
+                        {[...Array(3)].map((_, i) => (
+                            <Heart 
+                                key={i} 
+                                className={`w-6 h-6 ${i < lives ? 'fill-[#f0ead6] text-[#f0ead6]' : 'fill-black/20 text-black/20'}`} 
+                            />
+                        ))}
+                    </div>
+                </div>
+            )}
 
-  const requestBackToMenu = () => {
-    setShowExitModal(true);
-  };
+            {/* --- MENU SCREEN --- */}
+            {gameState === 'MENU' && (
+                <div className="flex-1 w-full flex flex-col items-center justify-center p-6 space-y-8 animate-fade-in">
+                    <div className="w-full bg-[#fff8e1] border-4 border-[#cc0000] p-6 shadow-[8px_8px_0_#1a1a1a] rounded-lg text-center transform -rotate-1">
+                        <h1 className="text-5xl font-ruslan text-[#cc0000] leading-[0.9] drop-shadow-[2px_2px_0_#1a1a1a] mb-2">
+                            СОЮЗ<br/>МУЛЬТ<br/>КВИЗ
+                        </h1>
+                        <div className="h-1 bg-[#1a1a1a] w-1/2 mx-auto my-4 rounded-full"></div>
+                        <p className="font-bold text-[#555] tracking-widest text-sm uppercase">Мультфильмы СССР</p>
+                    </div>
 
-  const confirmExit = () => {
-    setShowExitModal(false);
-    setGameState('MENU');
-    setCurrentImage(null);
-    setCurrentNode(null);
-  };
+                    {highScore > 0 && (
+                        <div className="bg-[#1a1a1a] text-[#d4af37] px-4 py-2 rounded font-bold border-2 border-[#d4af37] shadow-lg flex items-center gap-2">
+                            <span>⭐ РЕКОРД:</span>
+                            <span className="text-xl">{highScore}</span>
+                        </div>
+                    )}
 
-  return (
-    <div className="w-full h-full flex flex-col bg-slate-950">
-      {gameState === 'MENU' && <MainMenu onStart={handleStartGame} />}
-      
-      {gameState === 'LOADING' && <LoadingScreen message={loadingMsg} />}
-      
-      {gameState === 'PLAYING' && currentNode && (
-        <GameScreen 
-          node={currentNode} 
-          imageUrl={currentImage} 
-          onChoice={handleChoice} 
-          onBackToMenu={requestBackToMenu}
-        />
-      )}
+                    <Button variant="primary" onClick={startGame}>
+                        <div className="flex items-center gap-2">
+                            <Play className="fill-current w-5 h-5" />
+                            Начать просмотр
+                        </div>
+                    </Button>
+                </div>
+            )}
 
-      {/* Custom Exit Modal for WebView compatibility */}
-      {showExitModal && (
-        <Modal 
-            title="Выход в меню"
-            message="Текущий прогресс будет потерян. Вы уверены?"
-            confirmText="Выйти"
-            onConfirm={confirmExit}
-            onCancel={() => setShowExitModal(false)}
-        />
-      )}
+            {/* --- GAME SCREEN --- */}
+            {gameState === 'GAME' && currentQuestion && (
+                <div className="flex-1 w-full flex flex-col items-center pt-20 pb-6 px-4 overflow-y-auto">
+                    <TVFrame>
+                        <img 
+                            src={imageSrc} 
+                            alt="Guess" 
+                            className="w-full h-full object-cover filter contrast-110 brightness-90 sepia-[0.3]"
+                        />
+                    </TVFrame>
 
-      {/* Custom Error Modal */}
-      {errorModal.show && (
-        <Modal 
-            title="Ошибка"
-            message={errorModal.msg}
-            confirmText="Ок"
-            isError={true}
-            onConfirm={() => setErrorModal({show: false, msg: ''})}
-        />
-      )}
-    </div>
-  );
+                    <div className="bg-[#1a1a1a] text-[#f0ead6] px-4 py-2 -skew-x-6 border-l-4 border-[#cc0000] shadow-lg mb-4">
+                        <span className="block skew-x-6 font-bold tracking-wider">ОТКУДА ЭТОТ КАДР?</span>
+                    </div>
+
+                    <div className="w-full grid grid-cols-2 gap-3">
+                        {options.map((option, idx) => {
+                            let btnStyle = "";
+                            const isSelected = selectedOption === option;
+                            const isCorrect = option === currentQuestion.ru.title;
+
+                            if (isProcessing) {
+                                if (isSelected) {
+                                    btnStyle = isCorrect ? "animate-correct border-[#4a7c59]" : "animate-wrong border-[#cc0000]";
+                                } else if (isCorrect && selectedOption) {
+                                    // Show correct answer if wrong was selected
+                                    btnStyle = "bg-[#4a7c59] text-white border-[#4a7c59]";
+                                } else {
+                                    btnStyle = "opacity-50";
+                                }
+                            }
+
+                            return (
+                                <Button 
+                                    key={idx} 
+                                    onClick={() => handleAnswer(option)}
+                                    className={`min-h-[60px] text-sm normal-case leading-tight ${btnStyle}`}
+                                >
+                                    {option}
+                                </Button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* --- RESULT SCREEN --- */}
+            {gameState === 'RESULT' && currentQuestion && (
+                <div className="flex-1 w-full flex flex-col items-center justify-center p-6 pt-20 animate-fade-in">
+                    <div className="w-full bg-white border-4 border-[#cc0000] p-5 shadow-[6px_6px_0_#1a1a1a] rounded-lg relative overflow-hidden">
+                        {/* Background grid pattern */}
+                        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+                        
+                        <h2 className={`text-4xl font-ruslan text-center mb-4 ${selectedOption === currentQuestion.ru.title ? 'text-[#4a7c59]' : 'text-[#cc0000]'}`}>
+                            {selectedOption === currentQuestion.ru.title ? 'ВЕРНО!' : 'ОШИБКА!'}
+                        </h2>
+
+                        <div className="w-full aspect-video bg-black rounded border-2 border-[#1a1a1a] mb-4 overflow-hidden relative">
+                            <img src={imageSrc} className="w-full h-full object-contain" />
+                            <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] p-1 text-center">
+                                КАДР ИЗ МУЛЬТФИЛЬМА
+                            </div>
+                        </div>
+
+                        <h3 className="text-xl font-bold text-[#cc0000] mb-2 leading-none">{currentQuestion.ru.title}</h3>
+                        
+                        <div className="bg-[#f9f9f9] border-l-4 border-[#cc0000] p-3 text-sm italic text-gray-600 mb-6">
+                            <Info className="inline w-4 h-4 mr-2 mb-1" />
+                            {currentQuestion.ru.desc}
+                        </div>
+
+                        <Button variant="primary" onClick={() => nextQuestion()}>
+                            ДАЛЕЕ &gt;&gt;
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {/* --- GAMEOVER SCREEN --- */}
+            {gameState === 'GAMEOVER' && (
+                <div className="flex-1 w-full flex flex-col items-center justify-center p-6 animate-fade-in">
+                    <div className="bg-[#cc0000] p-2 rounded shadow-2xl w-full max-w-sm">
+                        <div className="border-4 border-double border-[#d4af37] p-6 text-center text-[#f0ead6]">
+                            <h2 className="text-5xl font-ruslan mb-4 drop-shadow-md">КОНЕЦ<br/>ФИЛЬМА</h2>
+                            
+                            <div className="bg-[#1a1a1a] text-white p-4 mb-4 rounded">
+                                <p className="text-sm opacity-70">ВАШ РЕЗУЛЬТАТ</p>
+                                <p className="text-4xl font-bold text-[#d4af37]">{score}</p>
+                            </div>
+
+                            <p className="text-sm mb-6 leading-tight">Плёнка оборвалась! Но вы можете попробовать снова.</p>
+
+                            <Button variant="ad" onClick={handleRevive}>
+                                <div className="flex flex-col items-center">
+                                    <span className="flex items-center gap-2 text-lg"><Tv className="w-5 h-5" /> ВОСКРЕСНУТЬ</span>
+                                    <span className="text-[10px] opacity-80 font-normal">(Посмотреть рекламу)</span>
+                                </div>
+                            </Button>
+
+                            <Button variant="outline" onClick={() => setGameState('MENU')} className="mt-4 border-[#f0ead6] text-[#f0ead6] hover:bg-[#f0ead6] hover:text-[#cc0000]">
+                                <Home className="w-4 h-4 mr-2" /> В МЕНЮ
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+        </div>
+    );
 };
 
 const root = createRoot(document.getElementById('root')!);
