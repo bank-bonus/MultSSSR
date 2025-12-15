@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Play, RotateCcw, Home, Tv, Heart, Info, XCircle, Share2 } from 'lucide-react';
+import { Play, RotateCcw, Home, Tv, Heart, Info, XCircle, Share2, Star, Trophy, Film } from 'lucide-react';
 
 // --- Global VK Bridge Declaration ---
 declare const vkBridge: any;
@@ -13,7 +13,7 @@ interface Cartoon {
     ru: { title: string; desc: string; };
 }
 
-// --- Data ---
+// --- Data (UNCHANGED) ---
 const CARTOONS: Cartoon[] = [
   { id: "nu_pogodi", ru: { title: "Ну, погоди!", desc: "Легендарная погоня Волка за Зайцем." } },
   { id: "vinni", ru: { title: "Винни-Пух", desc: "Винни-Пуха озвучивал Евгений Леонов." } },
@@ -63,7 +63,6 @@ const CARTOONS: Cartoon[] = [
 ];
 
 // --- Helper for Images ---
-// Changed to absolute path for better compatibility with Vite public folder
 const getLocalImageUrl = (id: string) => `/images/${id}.jpg`;
 const getPlaceholderUrl = (title: string) => `https://placehold.co/600x450/333/eee?text=${encodeURIComponent(title)}`;
 
@@ -75,50 +74,61 @@ interface TVFrameProps {
 }
 
 const TVFrame: React.FC<TVFrameProps> = ({ children, brand = "РУБИН" }) => (
-    <div className="relative w-full max-w-md aspect-[4/3] bg-[#5c3a21] rounded-xl border-2 border-[#3e2716] shadow-xl p-2 md:p-3 mb-4 flex-shrink-0">
-        <div className="w-full h-full bg-black rounded-lg border-4 border-[#1a1a1a] shadow-inner relative overflow-hidden group">
+    <div className="relative w-full max-w-md aspect-[4/3] bg-[#5c3a21] rounded-2xl border-b-8 border-r-4 border-[#3e2716] shadow-2xl p-3 flex-shrink-0 mx-auto transform transition-transform hover:scale-[1.01]">
+        <div className="w-full h-full bg-black rounded-xl border-[6px] border-[#2a1a0e] shadow-inner relative overflow-hidden group">
              {/* Screen Content */}
             <div className="absolute inset-0 z-10 bg-black flex items-center justify-center">
                 {children}
             </div>
             {/* Overlay Effects */}
-            <div className="absolute inset-0 z-20 pointer-events-none bg-gradient-radial from-transparent via-black/20 to-black/80" />
-            <div className="absolute inset-0 z-20 pointer-events-none opacity-10 bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/ea/Tv_noise.gif')] mix-blend-overlay opacity-5" />
+            <div className="absolute inset-0 z-20 pointer-events-none bg-gradient-radial from-transparent via-black/10 to-black/60" />
+            <div className="absolute inset-0 z-20 pointer-events-none opacity-5 bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/ea/Tv_noise.gif')] mix-blend-overlay" />
             <div className="absolute inset-0 z-20 pointer-events-none scanlines" />
         </div>
-        <div className="absolute bottom-[-14px] right-6 bg-[#3e2716] px-3 py-1 rounded-b-lg border border-t-0 border-[#2a1a0e] shadow-md z-30">
-            <span className="text-[10px] font-bold text-[#d4af37] tracking-widest">{brand}</span>
+        {/* TV branding */}
+        <div className="absolute bottom-[-16px] right-8 bg-[#3e2716] px-4 py-1 rounded-b-lg border-b-2 border-r-2 border-[#2a1a0e] shadow-md z-30 flex gap-2 items-center">
+            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_5px_red]"></div>
+            <span className="text-[10px] font-bold text-[#d4af37] tracking-[0.2em] font-ruslan">{brand}</span>
         </div>
-        <div className="absolute top-10 -right-2 w-1 h-12 bg-[#2a1a0e] rounded-r-md" />
-        <div className="absolute top-24 -right-2 w-1 h-8 bg-[#2a1a0e] rounded-r-md" />
+        {/* Antenna */}
+        <div className="absolute top-[-30px] right-10 w-1 h-16 bg-gray-400 rotate-12 origin-bottom -z-10 border border-gray-600"></div>
+        <div className="absolute top-[-30px] right-6 w-1 h-12 bg-gray-400 -rotate-12 origin-bottom -z-10 border border-gray-600"></div>
     </div>
 );
 
 interface ButtonProps {
     children?: React.ReactNode;
     onClick?: () => void;
-    variant?: 'default' | 'primary' | 'ad' | 'outline' | 'share';
+    variant?: 'default' | 'primary' | 'ad' | 'outline' | 'share' | 'menu';
     className?: string;
+    disabled?: boolean;
 }
 
 const Button: React.FC<ButtonProps> = ({ 
     children, 
     onClick, 
     variant = 'default',
-    className = ''
+    className = '',
+    disabled = false
 }) => {
-    const baseStyle = "w-full font-bold uppercase tracking-wide cursor-pointer flex items-center justify-center transition-transform active:translate-x-[2px] active:translate-y-[2px] active:shadow-none rounded-lg select-none";
+    // New 3D button styles
+    const baseStyle = "w-full font-bold uppercase tracking-wider cursor-pointer flex items-center justify-center transition-all rounded-xl select-none relative active:translate-y-[4px] active:shadow-none btn-press disabled:opacity-50 disabled:cursor-not-allowed";
     
     const variants = {
-        default: "bg-[#f0ead6] border-2 border-[#1a1a1a] text-[#1a1a1a] shadow-[3px_3px_0_rgba(0,0,0,0.2)] py-3 hover:bg-white",
-        primary: "bg-[#cc0000] border-2 border-[#1a1a1a] text-[#f0ead6] shadow-[4px_4px_0_#1a1a1a] py-4 text-lg hover:bg-[#e60000]",
-        ad: "bg-[#4a7c59] border-2 border-dashed border-white text-white shadow-lg py-3 mt-3 hover:bg-[#5da06e]",
-        outline: "bg-transparent border-2 border-[#1a1a1a] text-[#1a1a1a] py-2 mt-2 hover:bg-[#1a1a1a] hover:text-[#f0ead6]",
-        share: "bg-[#0077FF] border-2 border-[#1a1a1a] text-white shadow-[3px_3px_0_rgba(0,0,0,0.2)] py-3 mt-2 hover:bg-[#2288ff]"
+        default: "bg-[#fff8e1] border-2 border-[#5c3a21] text-[#3e2716] shadow-[0_4px_0_#5c3a21] py-4 text-base hover:bg-white",
+        primary: "bg-[#cc3333] border-2 border-[#8a2323] text-[#fff] shadow-[0_4px_0_#8a2323] py-4 text-lg hover:bg-[#d94444]",
+        menu: "bg-[#cc3333] border-2 border-[#8a2323] text-[#fff] shadow-[0_6px_0_#8a2323] py-5 text-xl hover:bg-[#d94444]",
+        ad: "bg-[#4a7c59] border-2 border-[#2e5239] text-white shadow-[0_4px_0_#2e5239] py-3 mt-3 hover:bg-[#5da06e]",
+        outline: "bg-transparent border-2 border-[#5c3a21] text-[#5c3a21] py-3 mt-2 hover:bg-[#5c3a21] hover:text-[#fff8e1] shadow-none active:translate-y-0",
+        share: "bg-[#4285f4] border-2 border-[#2b5ba3] text-white shadow-[0_4px_0_#2b5ba3] py-3 mt-2 hover:bg-[#5c9aff]"
     };
 
     return (
-        <button className={`${baseStyle} ${variants[variant]} ${className}`} onClick={onClick}>
+        <button 
+            className={`${baseStyle} ${variants[variant]} ${className}`} 
+            onClick={onClick}
+            disabled={disabled}
+        >
             {children}
         </button>
     );
@@ -132,7 +142,6 @@ const GameImage = ({ id, title }: { id: string, title: string }) => {
     }, [id]);
 
     const handleError = () => {
-        console.log(`Image not found for ${id}, switching to placeholder.`);
         setImgSrc(getPlaceholderUrl(title));
     };
 
@@ -141,10 +150,17 @@ const GameImage = ({ id, title }: { id: string, title: string }) => {
             src={imgSrc} 
             alt={title} 
             onError={handleError}
-            className="w-full h-full object-cover filter contrast-110 brightness-90 sepia-[0.3]"
+            className="w-full h-full object-cover filter contrast-[1.15] brightness-[0.95] sepia-[0.15]"
         />
     );
 };
+
+// Layout Container Card
+const Card = ({ children, className = "" }: { children?: React.ReactNode, className?: string }) => (
+    <div className={`bg-[#fffbf0] border-4 border-[#3e2716] rounded-2xl p-6 shadow-[8px_8px_0_rgba(62,39,22,0.2)] ${className}`}>
+        {children}
+    </div>
+);
 
 const App = () => {
     const [gameState, setGameState] = useState<GameState>('MENU');
@@ -156,13 +172,11 @@ const App = () => {
     const [selectedOption, setSelectedOption] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     
-    // Initialize VK Bridge and Load Highscore
     useEffect(() => {
         const initApp = async () => {
             try {
                 if (typeof vkBridge !== 'undefined') {
                     await vkBridge.send('VKWebAppInit');
-                    console.log('VK Bridge Initialized');
                 }
             } catch (e) {
                 console.error('VK Bridge Init Failed', e);
@@ -226,13 +240,12 @@ const App = () => {
             } else {
                 setGameState('RESULT');
             }
-        }, 1500);
+        }, 1200);
     };
 
     const handleRevive = async () => {
         try {
             if (typeof vkBridge !== 'undefined') {
-                // Try to show Native Ads (Reward)
                 const data = await vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'reward' });
                 if (data.result) {
                      setLives(1);
@@ -242,10 +255,9 @@ const App = () => {
                 }
             }
         } catch (e) {
-            console.error('Ad show failed, falling back to mock revive', e);
+            console.error('Ad show failed', e);
         }
-
-        // Fallback for web testing or if ads fail
+        // Fallback
         setLives(1);
         setGameState('GAME');
         nextQuestion();
@@ -254,168 +266,194 @@ const App = () => {
     const handleShare = () => {
         if (typeof vkBridge !== 'undefined') {
             vkBridge.send('VKWebAppShare', {
-                link: 'https://vk.com/app123456', // Replace with your App ID link if known
+                link: 'https://vk.com/app52163532',
                 message: `Я набрал ${score} очков в СоюзМультКвизе! Сможешь больше?`
             });
-        } else {
-            alert(`Поделиться: Я набрал ${score} очков!`);
         }
     };
 
     return (
-        <div className="w-full h-full max-w-[500px] flex flex-col items-center relative bg-[#f0ead6]">
+        <div className="w-full h-full max-w-[500px] flex flex-col items-center relative bg-pattern">
             
+            {/* --- TOP HUD (Only in Game) --- */}
             {(gameState === 'GAME' || gameState === 'RESULT') && (
-                <div className="absolute top-0 left-0 right-0 h-16 bg-[#cc0000] border-b-4 border-[#990000] shadow-md z-50 flex justify-between items-center px-4 text-[#f0ead6]">
-                    <div className="flex items-center gap-4">
+                <div className="absolute top-0 left-0 right-0 h-16 bg-[#2c2c2c] shadow-lg z-50 flex justify-between items-center px-4 text-[#f0ead6] border-b-4 border-[#3e2716]">
+                    <div className="flex items-center gap-3">
                         <button 
                             onClick={goToMenu}
-                            className="p-2 -ml-2 hover:bg-[#990000] rounded-lg transition-colors active:scale-95"
-                            aria-label="В меню"
+                            className="p-2 -ml-2 text-white/70 hover:text-white transition-colors"
                         >
                             <Home className="w-6 h-6" />
                         </button>
-                        <div className="flex flex-col leading-none">
-                            <span className="text-[10px] opacity-80 font-bold">СЧЕТ</span>
-                            <span className="text-2xl font-ruslan">{score}</span>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] text-white/50 font-bold tracking-widest uppercase">Счет</span>
+                            <span className="text-xl font-ruslan text-[#d4af37] leading-none">{score}</span>
                         </div>
                     </div>
-                    <div className="flex gap-1 text-xl">
+                    <div className="flex gap-1 items-center bg-black/30 px-3 py-1 rounded-full border border-white/10">
                         {[...Array(3)].map((_, i) => (
                             <Heart 
                                 key={i} 
-                                className={`w-6 h-6 ${i < lives ? 'fill-[#f0ead6] text-[#f0ead6]' : 'fill-black/20 text-black/20'}`} 
+                                className={`w-5 h-5 transition-all ${i < lives ? 'fill-[#cc3333] text-[#cc3333]' : 'fill-[#4a4a4a] text-[#4a4a4a]'}`} 
                             />
                         ))}
                     </div>
                 </div>
             )}
 
+            {/* --- MENU SCREEN --- */}
             {gameState === 'MENU' && (
-                <div className="flex-1 w-full flex flex-col items-center justify-center p-6 space-y-8 animate-fade-in">
-                    <div className="w-full bg-[#fff8e1] border-4 border-[#cc0000] p-6 shadow-[8px_8px_0_#1a1a1a] rounded-lg text-center transform -rotate-1">
-                        <h1 className="text-5xl font-ruslan text-[#cc0000] leading-[0.9] drop-shadow-[2px_2px_0_#1a1a1a] mb-2">
-                            СОЮЗ<br/>МУЛЬТ<br/>КВИЗ
-                        </h1>
-                        <div className="h-1 bg-[#1a1a1a] w-1/2 mx-auto my-4 rounded-full"></div>
-                        <p className="font-bold text-[#555] tracking-widest text-sm uppercase">Мультфильмы СССР</p>
-                    </div>
-
-                    {highScore > 0 && (
-                        <div className="bg-[#1a1a1a] text-[#d4af37] px-4 py-2 rounded font-bold border-2 border-[#d4af37] shadow-lg flex items-center gap-2">
-                            <span>⭐ РЕКОРД:</span>
-                            <span className="text-xl">{highScore}</span>
+                <div className="flex-1 w-full flex flex-col items-center justify-center p-6 animate-fade-in">
+                    <Card className="w-full max-w-sm text-center transform -rotate-1 relative overflow-hidden">
+                        {/* Decorative background elements inside card */}
+                        <div className="absolute top-0 left-0 w-full h-2 bg-[#cc3333]"></div>
+                        <div className="absolute bottom-0 left-0 w-full h-2 bg-[#cc3333]"></div>
+                        
+                        <div className="mb-8 mt-4 relative">
+                            <Film className="w-12 h-12 text-[#cc3333] opacity-20 absolute -top-4 -left-2 rotate-[-15deg]" />
+                            <h1 className="text-6xl font-ruslan text-[#cc3333] leading-[0.85] drop-shadow-[3px_3px_0_#3e2716] relative z-10">
+                                СОЮЗ<br/>МУЛЬТ<br/>КВИЗ
+                            </h1>
+                            <Film className="w-12 h-12 text-[#cc3333] opacity-20 absolute -bottom-2 -right-2 rotate-[15deg]" />
                         </div>
-                    )}
-
-                    <Button variant="primary" onClick={startGame}>
-                        <div className="flex items-center gap-2">
-                            <Play className="fill-current w-5 h-5" />
-                            Начать просмотр
+                        
+                        <div className="flex items-center justify-center gap-2 mb-8 text-[#5c3a21] font-bold text-sm tracking-widest uppercase border-y border-[#5c3a21] py-2">
+                             <Tv className="w-4 h-4" /> <span>Викторина из СССР</span> <Tv className="w-4 h-4" />
                         </div>
-                    </Button>
+
+                        {highScore > 0 && (
+                            <div className="mb-6 inline-flex items-center gap-2 bg-[#ffecb3] text-[#5c3a21] px-4 py-2 rounded-lg border-2 border-[#d4af37] shadow-sm">
+                                <Trophy className="w-5 h-5 text-[#d4af37] fill-current" />
+                                <div className="flex flex-col items-start leading-none">
+                                    <span className="text-[10px] uppercase font-bold opacity-60">Рекорд</span>
+                                    <span className="text-lg font-bold">{highScore}</span>
+                                </div>
+                            </div>
+                        )}
+
+                        <Button variant="menu" onClick={startGame}>
+                            <div className="flex items-center gap-3">
+                                <Play className="fill-current w-6 h-6" />
+                                ИГРАТЬ
+                            </div>
+                        </Button>
+                        
+                        <div className="mt-4 text-[#888] text-xs">Версия 1.1</div>
+                    </Card>
                 </div>
             )}
 
+            {/* --- GAMEPLAY SCREEN --- */}
             {gameState === 'GAME' && currentQuestion && (
-                <div className="flex-1 w-full flex flex-col items-center pt-20 pb-6 px-4 overflow-y-auto">
+                <div className="flex-1 w-full flex flex-col items-center pt-24 pb-6 px-4 overflow-y-auto">
+                    
                     <TVFrame>
                         <GameImage id={currentQuestion.id} title={currentQuestion.ru.title} />
                     </TVFrame>
 
-                    <div className="bg-[#1a1a1a] text-[#f0ead6] px-4 py-2 -skew-x-6 border-l-4 border-[#cc0000] shadow-lg mb-4">
-                        <span className="block skew-x-6 font-bold tracking-wider">ОТКУДА ЭТОТ КАДР?</span>
-                    </div>
+                    <div className="w-full max-w-md mt-4">
+                        <div className="bg-[#3e2716] text-[#f0ead6] px-5 py-3 rounded-t-xl mx-2 border-b-2 border-[#5c3a21] flex items-center justify-between">
+                            <span className="font-bold tracking-widest text-sm uppercase text-[#d4af37]">Вопрос:</span>
+                            <div className="flex gap-1">
+                                <div className="w-2 h-2 rounded-full bg-[#cc3333]"></div>
+                                <div className="w-2 h-2 rounded-full bg-[#d4af37]"></div>
+                                <div className="w-2 h-2 rounded-full bg-[#4a7c59]"></div>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-[#5c3a21] p-3 rounded-xl shadow-xl grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {options.map((option, idx) => {
+                                let btnStyle = "";
+                                const isSelected = selectedOption === option;
+                                const isCorrect = option === currentQuestion.ru.title;
 
-                    <div className="w-full grid grid-cols-2 gap-3">
-                        {options.map((option, idx) => {
-                            let btnStyle = "";
-                            const isSelected = selectedOption === option;
-                            const isCorrect = option === currentQuestion.ru.title;
-
-                            if (isProcessing) {
-                                if (isSelected) {
-                                    btnStyle = isCorrect ? "animate-correct border-[#4a7c59]" : "animate-wrong border-[#cc0000]";
-                                } else if (isCorrect && selectedOption) {
-                                    btnStyle = "bg-[#4a7c59] text-white border-[#4a7c59]";
-                                } else {
-                                    btnStyle = "opacity-50";
+                                if (isProcessing) {
+                                    if (isSelected) {
+                                        btnStyle = isCorrect ? "animate-correct !bg-[#4a7c59] !border-[#2e5239] !text-white" : "animate-wrong !bg-[#cc3333] !border-[#8a2323] !text-white";
+                                    } else if (isCorrect && selectedOption) {
+                                        // Show correct answer if wrong selected
+                                        btnStyle = "!bg-[#4a7c59] !border-[#2e5239] !text-white opacity-80";
+                                    } else {
+                                        btnStyle = "opacity-40";
+                                    }
                                 }
-                            }
 
-                            return (
-                                <Button 
-                                    key={idx} 
-                                    onClick={() => handleAnswer(option)}
-                                    className={`min-h-[60px] text-sm normal-case leading-tight ${btnStyle}`}
-                                >
-                                    {option}
-                                </Button>
-                            );
-                        })}
+                                return (
+                                    <Button 
+                                        key={idx} 
+                                        onClick={() => handleAnswer(option)}
+                                        className={`min-h-[64px] text-sm normal-case leading-tight ${btnStyle}`}
+                                        disabled={isProcessing}
+                                    >
+                                        {option}
+                                    </Button>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             )}
 
+            {/* --- LEVEL COMPLETE SCREEN --- */}
             {gameState === 'RESULT' && currentQuestion && (
                 <div className="flex-1 w-full flex flex-col items-center justify-center p-6 pt-20 animate-fade-in">
-                    <div className="w-full bg-white border-4 border-[#cc0000] p-5 shadow-[6px_6px_0_#1a1a1a] rounded-lg relative overflow-hidden">
-                        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
-                        
-                        <h2 className={`text-4xl font-ruslan text-center mb-4 ${selectedOption === currentQuestion.ru.title ? 'text-[#4a7c59]' : 'text-[#cc0000]'}`}>
-                            {selectedOption === currentQuestion.ru.title ? 'ВЕРНО!' : 'ОШИБКА!'}
-                        </h2>
+                    <Card className="w-full max-w-sm relative">
+                         {/* Stamp effect */}
+                         <div className={`absolute top-4 right-4 border-4 p-2 rounded rotate-[-12deg] font-ruslan text-xl z-20 opacity-80 mix-blend-multiply ${selectedOption === currentQuestion.ru.title ? 'border-[#4a7c59] text-[#4a7c59]' : 'border-[#cc3333] text-[#cc3333]'}`}>
+                            {selectedOption === currentQuestion.ru.title ? 'ВЕРНО' : 'ОШИБКА'}
+                         </div>
 
-                        <div className="w-full aspect-video bg-black rounded border-2 border-[#1a1a1a] mb-4 overflow-hidden relative">
+                        <div className="w-full aspect-video bg-black rounded-lg border-2 border-[#3e2716] mb-4 overflow-hidden relative shadow-inner">
                              <GameImage id={currentQuestion.id} title={currentQuestion.ru.title} />
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] p-1 text-center">
-                                КАДР ИЗ МУЛЬТФИЛЬМА
-                            </div>
                         </div>
 
-                        <h3 className="text-xl font-bold text-[#cc0000] mb-2 leading-none">{currentQuestion.ru.title}</h3>
+                        <h3 className="text-2xl font-bold text-[#cc3333] mb-2 leading-none font-ruslan">{currentQuestion.ru.title}</h3>
                         
-                        <div className="bg-[#f9f9f9] border-l-4 border-[#cc0000] p-3 text-sm italic text-gray-600 mb-6">
-                            <Info className="inline w-4 h-4 mr-2 mb-1" />
-                            {currentQuestion.ru.desc}
+                        <div className="bg-[#f0ead6] p-3 rounded-lg border border-[#d1c7b7] text-sm text-[#5c3a21] mb-6 flex gap-3 items-start">
+                            <Info className="w-5 h-5 min-w-[20px] text-[#cc3333] mt-0.5" />
+                            <span className="italic">{currentQuestion.ru.desc}</span>
                         </div>
 
-                        <Button variant="primary" onClick={nextQuestion} className="relative z-10">
-                            ДАЛЕЕ &gt;&gt;
+                        <Button variant="primary" onClick={nextQuestion}>
+                            СЛЕДУЮЩИЙ ВОПРОС
                         </Button>
-                    </div>
+                    </Card>
                 </div>
             )}
 
+            {/* --- GAME OVER / SHOP SCREEN --- */}
             {gameState === 'GAMEOVER' && (
                 <div className="flex-1 w-full flex flex-col items-center justify-center p-6 animate-fade-in">
-                    <div className="bg-[#cc0000] p-2 rounded shadow-2xl w-full max-w-sm">
-                        <div className="border-4 border-double border-[#d4af37] p-6 text-center text-[#f0ead6]">
-                            <h2 className="text-5xl font-ruslan mb-4 drop-shadow-md">КОНЕЦ<br/>ФИЛЬМА</h2>
-                            
-                            <div className="bg-[#1a1a1a] text-white p-4 mb-4 rounded">
-                                <p className="text-sm opacity-70">ВАШ РЕЗУЛЬТАТ</p>
-                                <p className="text-4xl font-bold text-[#d4af37]">{score}</p>
-                            </div>
+                    <Card className="w-full max-w-sm text-center border-[#cc3333]">
+                        <h2 className="text-5xl font-ruslan text-[#cc3333] mb-6 drop-shadow-md">КОНЕЦ<br/>ФИЛЬМА</h2>
+                        
+                        <div className="bg-[#3e2716] text-[#f0ead6] p-4 mb-6 rounded-xl shadow-inner border-b border-white/10">
+                            <p className="text-xs uppercase tracking-widest opacity-70 mb-1">Итоговый счет</p>
+                            <p className="text-5xl font-ruslan text-[#d4af37]">{score}</p>
+                        </div>
 
+                        {/* Fake Shop / Premium Revive Option */}
+                        <div className="mb-4">
                             <Button variant="ad" onClick={handleRevive}>
-                                <div className="flex flex-col items-center">
-                                    <span className="flex items-center gap-2 text-lg"><Tv className="w-5 h-5" /> ВОСКРЕСНУТЬ</span>
-                                    <span className="text-[10px] opacity-80 font-normal">(Смотреть рекламу)</span>
+                                <div className="flex items-center justify-between w-full px-2">
+                                    <div className="flex flex-col items-start">
+                                        <span className="font-bold text-lg flex items-center gap-2"> <Heart className="fill-white w-4 h-4"/> ВТОРОЙ ШАНС</span>
+                                        <span className="text-[10px] opacity-90 font-normal">Просмотр рекламы</span>
+                                    </div>
+                                    <div className="bg-white/20 px-2 py-1 rounded text-xs font-bold">БЕСПЛАТНО</div>
                                 </div>
-                            </Button>
-
-                            <Button variant="share" onClick={handleShare}>
-                                <div className="flex items-center gap-2 justify-center">
-                                    <Share2 className="w-5 h-5" /> ПОДЕЛИТЬСЯ
-                                </div>
-                            </Button>
-
-                            <Button variant="outline" onClick={goToMenu} className="mt-4 border-[#f0ead6] text-[#f0ead6] hover:bg-[#f0ead6] hover:text-[#cc0000]">
-                                <Home className="w-4 h-4 mr-2" /> В МЕНЮ
                             </Button>
                         </div>
-                    </div>
+
+                        <div className="grid grid-cols-2 gap-3 mt-6 pt-6 border-t border-[#3e2716]/20">
+                            <Button variant="outline" onClick={goToMenu}>
+                                <Home className="w-5 h-5 mr-2" /> МЕНЮ
+                            </Button>
+                            <Button variant="share" onClick={handleShare}>
+                                <Share2 className="w-5 h-5 mr-2" /> ПОСТ
+                            </Button>
+                        </div>
+                    </Card>
                 </div>
             )}
             
