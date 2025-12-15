@@ -177,6 +177,10 @@ const App = () => {
             try {
                 if (typeof vkBridge !== 'undefined') {
                     await vkBridge.send('VKWebAppInit');
+                    // Show sticky banner ad at bottom
+                    vkBridge.send('VKWebAppShowBannerAd', {
+                        banner_location: 'bottom'
+                    }).catch((e: any) => console.log('Banner ad error', e));
                 }
             } catch (e) {
                 console.error('VK Bridge Init Failed', e);
@@ -267,7 +271,7 @@ const App = () => {
         if (typeof vkBridge !== 'undefined') {
             vkBridge.send('VKWebAppShare', {
                 link: 'https://vk.com/app52163532',
-                message: `Я набрал ${score} очков в СоюзМультКвизе! Сможешь больше?`
+                message: `Мой рекорд: ${score} очков! Сможешь больше?`
             });
         }
     };
@@ -318,7 +322,7 @@ const App = () => {
                         </div>
                         
                         <div className="flex items-center justify-center gap-2 mb-8 text-[#5c3a21] font-bold text-sm tracking-widest uppercase border-y border-[#5c3a21] py-2">
-                             <Tv className="w-4 h-4" /> <span>Викторина из СССР</span> <Tv className="w-4 h-4" />
+                             <Tv className="w-4 h-4" /> <span>Мультфильмы СССР</span> <Tv className="w-4 h-4" />
                         </div>
 
                         {highScore > 0 && (
@@ -338,7 +342,6 @@ const App = () => {
                             </div>
                         </Button>
                         
-                        <div className="mt-4 text-[#888] text-xs">Версия 1.1</div>
                     </Card>
                 </div>
             )}
