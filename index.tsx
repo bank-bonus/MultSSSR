@@ -115,7 +115,7 @@ const Button: React.FC<ButtonProps> = ({
     const baseStyle = "w-full font-bold uppercase tracking-wider cursor-pointer flex items-center justify-center transition-all rounded-xl select-none relative active:translate-y-[4px] active:shadow-none btn-press disabled:opacity-50 disabled:cursor-not-allowed";
     
     const variants = {
-        default: "bg-[#fff8e1] border-2 border-[#5c3a21] text-[#3e2716] shadow-[0_4px_0_#5c3a21] py-4 text-base hover:bg-white",
+        default: "bg-[#fff8e1] border-2 border-[#5c3a21] text-[#3e2716] shadow-[0_4px_0_#5c3a21] py-2 text-base hover:bg-white",
         primary: "bg-[#cc3333] border-2 border-[#8a2323] text-[#fff] shadow-[0_4px_0_#8a2323] py-4 text-lg hover:bg-[#d94444]",
         menu: "bg-[#cc3333] border-2 border-[#8a2323] text-[#fff] shadow-[0_6px_0_#8a2323] py-5 text-xl hover:bg-[#d94444]",
         leaderboard: "bg-[#d4af37] border-2 border-[#b08d26] text-[#3e2716] shadow-[0_6px_0_#b08d26] py-3 text-lg hover:bg-[#e5be49]",
@@ -376,14 +376,14 @@ const App = () => {
 
             {/* --- GAMEPLAY SCREEN --- */}
             {gameState === 'GAME' && currentQuestion && (
-                <div className="flex-1 w-full flex flex-col items-center pt-24 pb-6 px-4 overflow-y-auto">
+                <div className="flex-1 w-full flex flex-col items-center pt-20 pb-16 px-4 overflow-y-auto no-scrollbar">
                     
                     <TVFrame>
                         <GameImage id={currentQuestion.id} title={currentQuestion.ru.title} />
                     </TVFrame>
 
-                    <div className="w-full max-w-md mt-4">
-                        <div className="bg-[#3e2716] text-[#f0ead6] px-5 py-3 rounded-t-xl mx-2 border-b-2 border-[#5c3a21] flex items-center justify-between">
+                    <div className="w-full max-w-md mt-4 flex-shrink-0">
+                        <div className="bg-[#3e2716] text-[#f0ead6] px-5 py-2 rounded-t-xl mx-2 border-b-2 border-[#5c3a21] flex items-center justify-between">
                             <span className="font-bold tracking-widest text-sm uppercase text-[#d4af37]">Вопрос:</span>
                             <div className="flex gap-1">
                                 <div className="w-2 h-2 rounded-full bg-[#cc3333]"></div>
@@ -392,7 +392,7 @@ const App = () => {
                             </div>
                         </div>
                         
-                        <div className="bg-[#5c3a21] p-3 rounded-xl shadow-xl grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="bg-[#5c3a21] p-2 rounded-xl shadow-xl grid grid-cols-2 gap-2">
                             {options.map((option, idx) => {
                                 let btnStyle = "";
                                 const isSelected = selectedOption === option;
@@ -413,7 +413,7 @@ const App = () => {
                                     <Button 
                                         key={idx} 
                                         onClick={() => handleAnswer(option)}
-                                        className={`min-h-[64px] text-sm normal-case leading-tight ${btnStyle}`}
+                                        className={`min-h-[56px] text-xs sm:text-sm normal-case leading-tight ${btnStyle}`}
                                         disabled={isProcessing}
                                     >
                                         {option}
