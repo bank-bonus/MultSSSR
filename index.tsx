@@ -140,19 +140,20 @@ const EXTENSIONS = ['.jpg', '.png', '.jpeg', '.webp'];
 const GameImage = ({ id, title }: { id: string, title: string }) => {
     // Start with index 0 (EXTENSIONS[0] which is .jpg)
     const [extIndex, setExtIndex] = useState(0);
-    const [imgSrc, setImgSrc] = useState<string>(`/images/${id}${EXTENSIONS[0]}`);
+    // Use relative path for better compatibility (e.g., VK mini apps iframe)
+    const [imgSrc, setImgSrc] = useState<string>(`./images/${id}${EXTENSIONS[0]}`);
 
     useEffect(() => {
         // Reset when ID changes
         setExtIndex(0);
-        setImgSrc(`/images/${id}${EXTENSIONS[0]}`);
+        setImgSrc(`./images/${id}${EXTENSIONS[0]}`);
     }, [id]);
 
     const handleError = () => {
         const nextIndex = extIndex + 1;
         if (nextIndex < EXTENSIONS.length) {
             setExtIndex(nextIndex);
-            setImgSrc(`/images/${id}${EXTENSIONS[nextIndex]}`);
+            setImgSrc(`./images/${id}${EXTENSIONS[nextIndex]}`);
         } else {
             // All extensions failed, show placeholder
             setImgSrc(getPlaceholderUrl(title));
@@ -161,6 +162,7 @@ const GameImage = ({ id, title }: { id: string, title: string }) => {
 
     return (
         <img 
+            key={imgSrc} // Force re-render on src change to reset error state
             src={imgSrc} 
             alt={title} 
             onError={handleError}
