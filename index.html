@@ -74,6 +74,14 @@
             transform: translateY(4px) !important;
             box-shadow: 0 0 0 transparent !important;
         }
+        
+        /* Star Animation */
+        @keyframes star-pop {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.5); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-star { animation: star-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
     </style>
 <script type="importmap">
 {

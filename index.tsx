@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Play, RotateCcw, Home, Tv, Heart, Info, XCircle, Share2, Star, Trophy, Film, BarChart3 } from 'lucide-react';
+import { Play, RotateCcw, Home, Tv, Heart, Info, XCircle, Share2, Star, Trophy, Film, BarChart3, AlertTriangle, CheckCircle } from 'lucide-react';
 
 // --- Global VK Bridge Declaration ---
 declare const vkBridge: any;
 
 // --- Types ---
-type GameState = 'MENU' | 'GAME' | 'RESULT' | 'GAMEOVER';
+type GameState = 'MENU' | 'GAME' | 'RESULT' | 'GAMEOVER' | 'LEVEL_UP' | 'WIN';
 
 interface Cartoon {
     id: string;
@@ -140,20 +140,20 @@ const EXTENSIONS = ['.jpg', '.png', '.jpeg', '.webp'];
 const GameImage = ({ id, title }: { id: string, title: string }) => {
     // Start with index 0 (EXTENSIONS[0] which is .jpg)
     const [extIndex, setExtIndex] = useState(0);
-    // Use relative path for better compatibility (e.g., VK mini apps iframe)
-    const [imgSrc, setImgSrc] = useState<string>(`./images/${id}${EXTENSIONS[0]}`);
+    // REMOVED './' prefix to better handle static serving
+    const [imgSrc, setImgSrc] = useState<string>(`images/${id}${EXTENSIONS[0]}`);
 
     useEffect(() => {
         // Reset when ID changes
         setExtIndex(0);
-        setImgSrc(`./images/${id}${EXTENSIONS[0]}`);
+        setImgSrc(`images/${id}${EXTENSIONS[0]}`);
     }, [id]);
 
     const handleError = () => {
         const nextIndex = extIndex + 1;
         if (nextIndex < EXTENSIONS.length) {
             setExtIndex(nextIndex);
-            setImgSrc(`./images/${id}${EXTENSIONS[nextIndex]}`);
+            setImgSrc(`images/${id}${EXTENSIONS[nextIndex]}`);
         } else {
             // All extensions failed, show placeholder
             setImgSrc(getPlaceholderUrl(title));
@@ -183,17 +183,22 @@ const App = () => {
     const [score, setScore] = useState(0);
     const [highScore, setHighScore] = useState(0);
     const [lives, setLives] = useState(3);
+    const [maxLives, setMaxLives] = useState(3);
     const [currentQuestion, setCurrentQuestion] = useState<Cartoon | null>(null);
     const [options, setOptions] = useState<string[]>([]);
     const [selectedOption, setSelectedOption] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
+    
+    // New State for progression
+    const [usedIds, setUsedIds] = useState<string[]>([]);
+    const [stars, setStars] = useState(0);
+    const [stageCounter, setStageCounter] = useState(0); // Tracks questions within a set of 4
     
     useEffect(() => {
         const initApp = async () => {
             try {
                 if (typeof vkBridge !== 'undefined') {
                     await vkBridge.send('VKWebAppInit');
-                    // Show sticky banner ad at bottom immediately on init
                     vkBridge.send('VKWebAppShowBannerAd', {
                         banner_location: 'bottom'
                     }).catch((e: any) => console.log('Banner ad error', e));
@@ -214,10 +219,8 @@ const App = () => {
             localStorage.setItem('sovietQuizHighScore', newScore.toString());
         }
         
-        // Push score to VK Leaderboard
         if (typeof vkBridge !== 'undefined') {
             vkBridge.send('VKWebAppSetLeaderboardScore', { value: newScore })
-                .then((data: any) => console.log('Score saved to VK', data))
                 .catch((error: any) => console.log('Score save failed', error));
         }
     };
@@ -225,8 +228,12 @@ const App = () => {
     const startGame = () => {
         setScore(0);
         setLives(3);
+        setMaxLives(3);
+        setUsedIds([]);
+        setStars(0);
+        setStageCounter(0);
         setGameState('GAME');
-        nextQuestion();
+        nextQuestion(true); // true = reset usedIds inside isn't needed, but good for clarity
     };
 
     const goToMenu = () => {
@@ -237,16 +244,31 @@ const App = () => {
         if (typeof vkBridge !== 'undefined') {
             vkBridge.send('VKWebAppShowLeaderboardBox', { user_result: highScore })
                 .catch((e: any) => console.log('Leaderboard open error', e));
-        } else {
-            console.log("VK Bridge not available, simulating leaderboard open");
         }
     };
 
-    const nextQuestion = () => {
+    const nextQuestion = (isFirst = false) => {
         setIsProcessing(false);
         setSelectedOption(null);
         
-        const correct = CARTOONS[Math.floor(Math.random() * CARTOONS.length)];
+        // Filter out used cartoons
+        const availableCartoons = CARTOONS.filter(c => !usedIds.includes(c.id));
+        
+        if (availableCartoons.length === 0) {
+            setGameState('WIN');
+            saveScore(score + 1000); // Bonus for finishing all
+            return;
+        }
+
+        const correct = availableCartoons[Math.floor(Math.random() * availableCartoons.length)];
+        
+        // Add to used list
+        if (!isFirst) {
+            // Already added logic in handleAnswer or effect? 
+            // Better to add it when the question is set.
+        }
+        
+        // Distractors can be any cartoon other than correct
         let distractors = CARTOONS.filter(c => c.id !== correct.id);
         distractors = distractors.sort(() => 0.5 - Math.random()).slice(0, 3);
         const allOptions = [correct, ...distractors].sort(() => 0.5 - Math.random()).map(c => c.ru.title);
@@ -256,6 +278,30 @@ const App = () => {
         setGameState('GAME');
     };
 
+    const handleLevelUp = () => {
+        const newStars = stars + 1;
+        setStars(newStars);
+        setStageCounter(0); // Reset counter for next star
+        
+        // Difficulty Logic
+        let newMaxLives = maxLives;
+        if (newStars === 1) {
+            // After 1 star (4 questions), drop to max 2 lives
+            newMaxLives = 2;
+        } else if (newStars >= 2) {
+             // After 2 stars (8 questions), drop to max 1 life
+            newMaxLives = 1;
+        }
+
+        setMaxLives(newMaxLives);
+        // Reduce current lives if they exceed new max
+        if (lives > newMaxLives) {
+            setLives(newMaxLives);
+        }
+
+        setGameState('LEVEL_UP');
+    };
+
     const handleAnswer = (answer: string) => {
         if (isProcessing || !currentQuestion) return;
         setIsProcessing(true);
@@ -263,21 +309,39 @@ const App = () => {
 
         const isCorrect = answer === currentQuestion.ru.title;
 
+        // Mark this question ID as used
+        setUsedIds(prev => [...prev, currentQuestion.id]);
+
         if (isCorrect) {
             setScore(prev => prev + 100);
+            const nextCounter = stageCounter + 1;
+            setStageCounter(nextCounter);
+            
+            setTimeout(() => {
+                if (nextCounter >= 4) {
+                    handleLevelUp();
+                } else {
+                    setGameState('RESULT');
+                }
+            }, 1000);
+
         } else {
             setLives(prev => prev - 1);
+             setTimeout(() => {
+                if (lives - 1 <= 0) {
+                    saveScore(score);
+                    setGameState('GAMEOVER');
+                } else {
+                    setGameState('RESULT');
+                }
+            }, 1200);
         }
+    };
 
-        setTimeout(() => {
-            if (!isCorrect && lives <= 1) {
-                const finalScore = isCorrect ? score + 100 : score;
-                saveScore(finalScore);
-                setGameState('GAMEOVER');
-            } else {
-                setGameState('RESULT');
-            }
-        }, 1200);
+    const continueAfterLevelUp = () => {
+        setGameState('GAME'); // Just a visual transition, question is already loaded or we load next?
+        // Actually we need to load next question
+        nextQuestion();
     };
 
     const handleRevive = async () => {
@@ -286,8 +350,11 @@ const App = () => {
                 const data = await vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'reward' });
                 if (data.result) {
                      setLives(1);
+                     // Allow revive but cap at current maxLives logic? No, give them 1 life.
                      setGameState('GAME');
-                     nextQuestion();
+                     // We need to re-roll question because current one is marked 'used' but failed?
+                     // Actually, if they failed, they shouldn't skip it, but for simplicity let's skip to next
+                     nextQuestion(); 
                      return;
                 }
             }
@@ -304,17 +371,16 @@ const App = () => {
         if (typeof vkBridge !== 'undefined') {
             vkBridge.send('VKWebAppShare', {
                 link: 'https://vk.com/app52163532',
-                message: `Мой рекорд: ${score} очков в викторине! Сможешь больше?`
+                message: `Я собрал ${stars} звёзд и набрал ${score} очков в СоюзМультКвиз! Сможешь лучше?`
             });
         }
     };
 
     return (
         <div className="w-full h-full max-w-[500px] flex flex-col items-center relative bg-pattern pb-[60px]">
-            {/* Added bottom padding for Banner Ad space */}
             
-            {/* --- TOP HUD (Only in Game) --- */}
-            {(gameState === 'GAME' || gameState === 'RESULT') && (
+            {/* --- TOP HUD --- */}
+            {(gameState === 'GAME' || gameState === 'RESULT' || gameState === 'LEVEL_UP') && (
                 <div className="absolute top-0 left-0 right-0 h-16 bg-[#2c2c2c] shadow-lg z-50 flex justify-between items-center px-4 text-[#f0ead6] border-b-4 border-[#3e2716]">
                     <div className="flex items-center gap-3">
                         <button 
@@ -328,13 +394,23 @@ const App = () => {
                             <span className="text-xl font-ruslan text-[#d4af37] leading-none">{score}</span>
                         </div>
                     </div>
-                    <div className="flex gap-1 items-center bg-black/30 px-3 py-1 rounded-full border border-white/10">
-                        {[...Array(3)].map((_, i) => (
-                            <Heart 
-                                key={i} 
-                                className={`w-5 h-5 transition-all ${i < lives ? 'fill-[#cc3333] text-[#cc3333]' : 'fill-[#4a4a4a] text-[#4a4a4a]'}`} 
-                            />
-                        ))}
+                    
+                    <div className="flex items-center gap-4">
+                        {/* Stars Counter */}
+                        <div className="flex items-center gap-1">
+                             <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+                             <span className="font-bold text-lg">{stars}</span>
+                        </div>
+
+                        {/* Lives */}
+                        <div className="flex gap-1 items-center bg-black/30 px-3 py-1 rounded-full border border-white/10">
+                            {[...Array(maxLives)].map((_, i) => (
+                                <Heart 
+                                    key={i} 
+                                    className={`w-5 h-5 transition-all ${i < lives ? 'fill-[#cc3333] text-[#cc3333]' : 'fill-[#4a4a4a] text-[#4a4a4a]'}`} 
+                                />
+                            ))}
+                        </div>
                     </div>
                 </div>
             )}
@@ -343,7 +419,6 @@ const App = () => {
             {gameState === 'MENU' && (
                 <div className="flex-1 w-full flex flex-col items-center justify-center p-6 animate-fade-in">
                     <Card className="w-full max-w-sm text-center transform -rotate-1 relative overflow-hidden">
-                        {/* Decorative background elements inside card */}
                         <div className="absolute top-0 left-0 w-full h-2 bg-[#cc3333]"></div>
                         <div className="absolute bottom-0 left-0 w-full h-2 bg-[#cc3333]"></div>
                         
@@ -384,7 +459,6 @@ const App = () => {
                                 </div>
                             </Button>
                         </div>
-                        
                     </Card>
                 </div>
             )}
@@ -393,6 +467,13 @@ const App = () => {
             {gameState === 'GAME' && currentQuestion && (
                 <div className="flex-1 w-full flex flex-col items-center pt-20 pb-16 px-4 overflow-y-auto no-scrollbar">
                     
+                    {/* Progress dots for current stage */}
+                    <div className="flex gap-2 mb-4">
+                        {[...Array(4)].map((_, i) => (
+                             <div key={i} className={`w-3 h-3 rounded-full transition-colors ${i < stageCounter ? 'bg-[#4a7c59]' : 'bg-[#d1c7b7]'}`}></div>
+                        ))}
+                    </div>
+
                     <TVFrame>
                         <GameImage id={currentQuestion.id} title={currentQuestion.ru.title} />
                     </TVFrame>
@@ -400,11 +481,10 @@ const App = () => {
                     <div className="w-full max-w-md mt-4 flex-shrink-0">
                         <div className="bg-[#3e2716] text-[#f0ead6] px-5 py-2 rounded-t-xl mx-2 border-b-2 border-[#5c3a21] flex items-center justify-between">
                             <span className="font-bold tracking-widest text-sm uppercase text-[#d4af37]">Вопрос:</span>
-                            <div className="flex gap-1">
-                                <div className="w-2 h-2 rounded-full bg-[#cc3333]"></div>
-                                <div className="w-2 h-2 rounded-full bg-[#d4af37]"></div>
-                                <div className="w-2 h-2 rounded-full bg-[#4a7c59]"></div>
-                            </div>
+                            {/* Difficulty Indicator */}
+                            {maxLives === 1 && <span className="text-xs bg-red-600 px-2 py-0.5 rounded text-white animate-pulse">ХАРДКОР</span>}
+                            {maxLives === 2 && <span className="text-xs bg-orange-600 px-2 py-0.5 rounded text-white">СЛОЖНО</span>}
+                            {maxLives === 3 && <span className="text-xs bg-green-600 px-2 py-0.5 rounded text-white">НОРМА</span>}
                         </div>
                         
                         <div className="bg-[#5c3a21] p-2 rounded-xl shadow-xl grid grid-cols-2 gap-2">
@@ -417,7 +497,6 @@ const App = () => {
                                     if (isSelected) {
                                         btnStyle = isCorrect ? "animate-correct !bg-[#4a7c59] !border-[#2e5239] !text-white" : "animate-wrong !bg-[#cc3333] !border-[#8a2323] !text-white";
                                     } else if (isCorrect && selectedOption) {
-                                        // Show correct answer if wrong selected
                                         btnStyle = "!bg-[#4a7c59] !border-[#2e5239] !text-white opacity-80";
                                     } else {
                                         btnStyle = "opacity-40";
@@ -440,6 +519,40 @@ const App = () => {
                 </div>
             )}
 
+            {/* --- LEVEL UP / STAR AWARD SCREEN --- */}
+            {gameState === 'LEVEL_UP' && (
+                 <div className="flex-1 w-full flex flex-col items-center justify-center p-6 pt-20 animate-fade-in bg-black/80 absolute inset-0 z-[60]">
+                    <Card className="w-full max-w-sm text-center relative border-[#d4af37]">
+                        <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
+                            <Star className="w-24 h-24 text-yellow-400 fill-yellow-400 animate-star drop-shadow-lg" />
+                        </div>
+                        
+                        <h2 className="text-3xl font-ruslan text-[#d4af37] mt-10 mb-2">ОТЛИЧНО!</h2>
+                        <p className="text-[#5c3a21] font-bold mb-4 uppercase text-sm">Звезда получена</p>
+                        
+                        <div className="bg-[#3e2716] text-[#f0ead6] p-4 mb-6 rounded-xl text-left">
+                            <p className="text-xs uppercase opacity-70 mb-2">Следующий этап:</p>
+                            {maxLives === 2 && (
+                                <div className="flex items-center gap-3 text-orange-400">
+                                    <AlertTriangle className="w-6 h-6" />
+                                    <span className="font-bold leading-tight">Внимание!<br/>Максимум 2 жизни.</span>
+                                </div>
+                            )}
+                            {maxLives === 1 && (
+                                <div className="flex items-center gap-3 text-red-500">
+                                    <AlertTriangle className="w-6 h-6" />
+                                    <span className="font-bold leading-tight">ОПАСНОСТЬ!<br/>Только 1 жизнь!</span>
+                                </div>
+                            )}
+                        </div>
+
+                        <Button variant="leaderboard" onClick={continueAfterLevelUp}>
+                            ПРОДОЛЖИТЬ
+                        </Button>
+                    </Card>
+                 </div>
+            )}
+
             {/* --- LEVEL COMPLETE SCREEN --- */}
             {gameState === 'RESULT' && currentQuestion && (
                 <div className="flex-1 w-full flex flex-col items-center justify-center p-6 pt-20 animate-fade-in">
@@ -460,14 +573,38 @@ const App = () => {
                             <span className="italic">{currentQuestion.ru.desc}</span>
                         </div>
 
-                        <Button variant="primary" onClick={nextQuestion}>
+                        <Button variant="primary" onClick={() => nextQuestion()}>
                             СЛЕДУЮЩИЙ ВОПРОС
                         </Button>
                     </Card>
                 </div>
             )}
 
-            {/* --- GAME OVER / SHOP SCREEN --- */}
+            {/* --- WIN SCREEN --- */}
+            {gameState === 'WIN' && (
+                <div className="flex-1 w-full flex flex-col items-center justify-center p-6 animate-fade-in">
+                    <Card className="w-full max-w-sm text-center border-[#d4af37]">
+                        <h2 className="text-4xl font-ruslan text-[#d4af37] mb-4 drop-shadow-md">ПОБЕДА!</h2>
+                        <div className="text-[#5c3a21] mb-6">Вы отгадали все мультфильмы!</div>
+                        
+                         <div className="bg-[#3e2716] text-[#f0ead6] p-4 mb-6 rounded-xl shadow-inner border-b border-white/10">
+                            <p className="text-xs uppercase tracking-widest opacity-70 mb-1">Итоговый счет</p>
+                            <p className="text-5xl font-ruslan text-[#d4af37]">{score}</p>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                             <Button variant="outline" onClick={goToMenu}>
+                                <Home className="w-5 h-5 mr-2" /> МЕНЮ
+                            </Button>
+                            <Button variant="share" onClick={handleShare}>
+                                <Share2 className="w-5 h-5 mr-2" /> ПОСТ
+                            </Button>
+                        </div>
+                    </Card>
+                </div>
+            )}
+
+            {/* --- GAME OVER SCREEN --- */}
             {gameState === 'GAMEOVER' && (
                 <div className="flex-1 w-full flex flex-col items-center justify-center p-6 animate-fade-in">
                     <Card className="w-full max-w-sm text-center border-[#cc3333]">
@@ -478,15 +615,15 @@ const App = () => {
                             <p className="text-5xl font-ruslan text-[#d4af37]">{score}</p>
                         </div>
 
-                        {/* Fake Shop / Premium Revive Option */}
+                        {/* Revive Option */}
                         <div className="mb-4">
                             <Button variant="ad" onClick={handleRevive}>
                                 <div className="flex items-center justify-between w-full px-2">
                                     <div className="flex flex-col items-start">
-                                        <span className="font-bold text-lg flex items-center gap-2"> <Heart className="fill-white w-4 h-4"/> ВТОРОЙ ШАНС</span>
-                                        <span className="text-[10px] opacity-90 font-normal">Просмотр рекламы</span>
+                                        <span className="font-bold text-lg flex items-center gap-2"> <Heart className="fill-white w-4 h-4"/> ЕЩЁ ШАНС</span>
+                                        <span className="text-[10px] opacity-90 font-normal">Реклама</span>
                                     </div>
-                                    <div className="bg-white/20 px-2 py-1 rounded text-xs font-bold">БЕСПЛАТНО</div>
+                                    <div className="bg-white/20 px-2 py-1 rounded text-xs font-bold">FREE</div>
                                 </div>
                             </Button>
                         </div>
