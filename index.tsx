@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Play, RotateCcw, Home, Tv, Heart, Info, XCircle, Share2, Star, Trophy, Film } from 'lucide-react';
+import { Play, RotateCcw, Home, Tv, Heart, Info, XCircle, Share2, Star, Trophy, Film, BarChart3 } from 'lucide-react';
 
 // --- Global VK Bridge Declaration ---
 declare const vkBridge: any;
@@ -99,7 +99,7 @@ const TVFrame: React.FC<TVFrameProps> = ({ children, brand = "РУБИН" }) => 
 interface ButtonProps {
     children?: React.ReactNode;
     onClick?: () => void;
-    variant?: 'default' | 'primary' | 'ad' | 'outline' | 'share' | 'menu';
+    variant?: 'default' | 'primary' | 'ad' | 'outline' | 'share' | 'menu' | 'leaderboard';
     className?: string;
     disabled?: boolean;
 }
@@ -118,6 +118,7 @@ const Button: React.FC<ButtonProps> = ({
         default: "bg-[#fff8e1] border-2 border-[#5c3a21] text-[#3e2716] shadow-[0_4px_0_#5c3a21] py-4 text-base hover:bg-white",
         primary: "bg-[#cc3333] border-2 border-[#8a2323] text-[#fff] shadow-[0_4px_0_#8a2323] py-4 text-lg hover:bg-[#d94444]",
         menu: "bg-[#cc3333] border-2 border-[#8a2323] text-[#fff] shadow-[0_6px_0_#8a2323] py-5 text-xl hover:bg-[#d94444]",
+        leaderboard: "bg-[#d4af37] border-2 border-[#b08d26] text-[#3e2716] shadow-[0_6px_0_#b08d26] py-3 text-lg hover:bg-[#e5be49]",
         ad: "bg-[#4a7c59] border-2 border-[#2e5239] text-white shadow-[0_4px_0_#2e5239] py-3 mt-3 hover:bg-[#5da06e]",
         outline: "bg-transparent border-2 border-[#5c3a21] text-[#5c3a21] py-3 mt-2 hover:bg-[#5c3a21] hover:text-[#fff8e1] shadow-none active:translate-y-0",
         share: "bg-[#4285f4] border-2 border-[#2b5ba3] text-white shadow-[0_4px_0_#2b5ba3] py-3 mt-2 hover:bg-[#5c9aff]"
@@ -177,7 +178,7 @@ const App = () => {
             try {
                 if (typeof vkBridge !== 'undefined') {
                     await vkBridge.send('VKWebAppInit');
-                    // Show sticky banner ad at bottom
+                    // Show sticky banner ad at bottom immediately on init
                     vkBridge.send('VKWebAppShowBannerAd', {
                         banner_location: 'bottom'
                     }).catch((e: any) => console.log('Banner ad error', e));
@@ -197,6 +198,13 @@ const App = () => {
             setHighScore(newScore);
             localStorage.setItem('sovietQuizHighScore', newScore.toString());
         }
+        
+        // Push score to VK Leaderboard
+        if (typeof vkBridge !== 'undefined') {
+            vkBridge.send('VKWebAppSetLeaderboardScore', { value: newScore })
+                .then((data: any) => console.log('Score saved to VK', data))
+                .catch((error: any) => console.log('Score save failed', error));
+        }
     };
 
     const startGame = () => {
@@ -208,6 +216,15 @@ const App = () => {
 
     const goToMenu = () => {
         setGameState('MENU');
+    };
+
+    const openLeaderboard = () => {
+        if (typeof vkBridge !== 'undefined') {
+            vkBridge.send('VKWebAppShowLeaderboardBox', { user_result: highScore })
+                .catch((e: any) => console.log('Leaderboard open error', e));
+        } else {
+            console.log("VK Bridge not available, simulating leaderboard open");
+        }
     };
 
     const nextQuestion = () => {
@@ -239,7 +256,8 @@ const App = () => {
 
         setTimeout(() => {
             if (!isCorrect && lives <= 1) {
-                saveScore(score);
+                const finalScore = isCorrect ? score + 100 : score;
+                saveScore(finalScore);
                 setGameState('GAMEOVER');
             } else {
                 setGameState('RESULT');
@@ -271,13 +289,14 @@ const App = () => {
         if (typeof vkBridge !== 'undefined') {
             vkBridge.send('VKWebAppShare', {
                 link: 'https://vk.com/app52163532',
-                message: `Мой рекорд: ${score} очков! Сможешь больше?`
+                message: `Мой рекорд: ${score} очков в викторине! Сможешь больше?`
             });
         }
     };
 
     return (
-        <div className="w-full h-full max-w-[500px] flex flex-col items-center relative bg-pattern">
+        <div className="w-full h-full max-w-[500px] flex flex-col items-center relative bg-pattern pb-[60px]">
+            {/* Added bottom padding for Banner Ad space */}
             
             {/* --- TOP HUD (Only in Game) --- */}
             {(gameState === 'GAME' || gameState === 'RESULT') && (
@@ -335,12 +354,21 @@ const App = () => {
                             </div>
                         )}
 
-                        <Button variant="menu" onClick={startGame}>
-                            <div className="flex items-center gap-3">
-                                <Play className="fill-current w-6 h-6" />
-                                ИГРАТЬ
-                            </div>
-                        </Button>
+                        <div className="space-y-3 w-full">
+                            <Button variant="menu" onClick={startGame}>
+                                <div className="flex items-center gap-3">
+                                    <Play className="fill-current w-6 h-6" />
+                                    ИГРАТЬ
+                                </div>
+                            </Button>
+
+                            <Button variant="leaderboard" onClick={openLeaderboard}>
+                                <div className="flex items-center gap-3 justify-center">
+                                    <BarChart3 className="w-5 h-5" />
+                                    РЕЙТИНГ
+                                </div>
+                            </Button>
+                        </div>
                         
                     </Card>
                 </div>
