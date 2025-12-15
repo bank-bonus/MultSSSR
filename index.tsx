@@ -63,7 +63,6 @@ const CARTOONS: Cartoon[] = [
 ];
 
 // --- Helper for Images ---
-const getLocalImageUrl = (id: string) => `/images/${id}.jpg`;
 const getPlaceholderUrl = (title: string) => `https://placehold.co/600x450/333/eee?text=${encodeURIComponent(title)}`;
 
 // --- Components ---
@@ -135,15 +134,29 @@ const Button: React.FC<ButtonProps> = ({
     );
 };
 
+// Supported extensions to try
+const EXTENSIONS = ['.jpg', '.png', '.jpeg', '.webp'];
+
 const GameImage = ({ id, title }: { id: string, title: string }) => {
-    const [imgSrc, setImgSrc] = useState<string>(getLocalImageUrl(id));
+    // Start with index 0 (EXTENSIONS[0] which is .jpg)
+    const [extIndex, setExtIndex] = useState(0);
+    const [imgSrc, setImgSrc] = useState<string>(`/images/${id}${EXTENSIONS[0]}`);
 
     useEffect(() => {
-        setImgSrc(getLocalImageUrl(id));
+        // Reset when ID changes
+        setExtIndex(0);
+        setImgSrc(`/images/${id}${EXTENSIONS[0]}`);
     }, [id]);
 
     const handleError = () => {
-        setImgSrc(getPlaceholderUrl(title));
+        const nextIndex = extIndex + 1;
+        if (nextIndex < EXTENSIONS.length) {
+            setExtIndex(nextIndex);
+            setImgSrc(`/images/${id}${EXTENSIONS[nextIndex]}`);
+        } else {
+            // All extensions failed, show placeholder
+            setImgSrc(getPlaceholderUrl(title));
+        }
     };
 
     return (
